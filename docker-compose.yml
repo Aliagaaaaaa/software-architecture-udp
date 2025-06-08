@@ -1,0 +1,161 @@
+version: '3.8'
+
+services:
+  # Base image build
+  base:
+    build:
+      context: .
+      dockerfile: Dockerfile.base
+    image: soa-base:latest
+
+  # SOA Bus
+  soa-bus:
+    build:
+      context: .
+      dockerfile: soa_bus/Dockerfile
+    ports:
+      - "8000:8000"
+    networks:
+      - soa-network
+    depends_on:
+      - base
+
+  # Notification Service
+  notification-service:
+    build:
+      context: .
+      dockerfile: notification_service/Dockerfile
+    ports:
+      - "8010:8010"
+    networks:
+      - soa-network
+    depends_on:
+      - base
+      - soa-bus
+
+  # Auth Service
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth_service/Dockerfile
+    ports:
+      - "8001:8001"
+    networks:
+      - soa-network
+    depends_on:
+      - base
+      - soa-bus
+
+  # Message Service
+  message-service:
+    build:
+      context: .
+      dockerfile: message_service/Dockerfile
+    ports:
+      - "8002:8002"
+    networks:
+      - soa-network
+    depends_on:
+      - base
+      - soa-bus
+
+  # Forum Service
+  forum-service:
+    build:
+      context: .
+      dockerfile: forum_service/Dockerfile
+    ports:
+      - "8003:8003"
+    networks:
+      - soa-network
+    depends_on:
+      - base
+      - soa-bus
+
+  # Post Service
+  post-service:
+    build:
+      context: .
+      dockerfile: post_service/Dockerfile
+    ports:
+      - "8004:8004"
+    networks:
+      - soa-network
+    depends_on:
+      - base
+      - soa-bus
+
+  # Comment Service
+  comment-service:
+    build:
+      context: .
+      dockerfile: comment_service/Dockerfile
+    ports:
+      - "8005:8005"
+    networks:
+      - soa-network
+    depends_on:
+      - base
+      - soa-bus
+
+  # Event Service
+  event-service:
+    build:
+      context: .
+      dockerfile: event_service/Dockerfile
+    ports:
+      - "8006:8006"
+    networks:
+      - soa-network
+    depends_on:
+      - base
+      - soa-bus
+
+  # Report Service
+  report-service:
+    build:
+      context: .
+      dockerfile: report_service/Dockerfile
+    ports:
+      - "8007:8007"
+    networks:
+      - soa-network
+    depends_on:
+      - base
+      - soa-bus
+
+  # Profile Service
+  profile-service:
+    build:
+      context: .
+      dockerfile: prof_service/Dockerfile
+    ports:
+      - "8008:8008"
+    networks:
+      - soa-network
+    depends_on:
+      - base
+      - soa-bus
+
+  # Client
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    networks:
+      - soa-network
+    depends_on:
+      - soa-bus
+      - auth-service
+      - notification-service
+      - message-service
+      - forum-service
+      - post-service
+      - comment-service
+      - event-service
+      - report-service
+      - profile-service
+
+networks:
+  soa-network:
+    driver: bridge 
