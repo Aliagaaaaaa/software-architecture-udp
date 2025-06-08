@@ -1,3 +1,4 @@
+import os
 import socket
 import threading
 import logging
@@ -20,8 +21,10 @@ class SOAServiceBase(ABC):
         self.host = host
         self.port = port
         self.description = description
-        self.soa_server_host = soa_server_host
-        self.soa_server_port = soa_server_port
+        
+        # Use environment variables if available, otherwise use defaults
+        self.soa_server_host = os.getenv('SOA_SERVER_HOST', soa_server_host)
+        self.soa_server_port = int(os.getenv('SOA_SERVER_PORT', soa_server_port))
         
         
         self.logger = logging.getLogger(f'SOA_Service_{service_name}')
