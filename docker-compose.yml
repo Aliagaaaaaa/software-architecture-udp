@@ -137,24 +137,7 @@ services:
       - base
       - soa-bus
 
-  # Client
-  client:
-    build:
-      context: .
-      dockerfile: client/Dockerfile
-    networks:
-      - soa-network
-    depends_on:
-      - soa-bus
-      - auth-service
-      - notification-service
-      - message-service
-      - forum-service
-      - post-service
-      - comment-service
-      - event-service
-      - report-service
-      - profile-service
+
 
 networks:
   soa-network:

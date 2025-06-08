@@ -6,10 +6,10 @@ echo "🐳 Configurando el entorno Docker para SOA System..."
 echo "📁 Creando directorios de servicios..."
 mkdir -p soa_bus notification_service auth_service message_service 
 mkdir -p forum_service post_service comment_service event_service 
-mkdir -p report_service prof_service client
+mkdir -p report_service prof_service
 
 echo "📋 Estructura de directorios creada:"
-ls -la | grep "service\|soa_bus\|client"
+ls -la | grep "service\|soa_bus"
 
 echo ""
 echo "🚀 Para iniciar todos los servicios, ejecuta:"

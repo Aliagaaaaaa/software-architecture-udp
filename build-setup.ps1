@@ -5,7 +5,7 @@ Write-Host "📁 Creando directorios de servicios..." -ForegroundColor Yellow
 $directories = @(
     "soa_bus", "notification_service", "auth_service", "message_service",
     "forum_service", "post_service", "comment_service", "event_service",
-    "report_service", "prof_service", "client"
+    "report_service", "prof_service"
 )
 
 foreach ($dir in $directories) {
@@ -19,7 +19,7 @@ foreach ($dir in $directories) {
 
 Write-Host ""
 Write-Host "📋 Estructura de directorios:" -ForegroundColor Yellow
-Get-ChildItem | Where-Object { $_.Name -match "service|soa_bus|client" } | Format-Table Name, LastWriteTime
+Get-ChildItem | Where-Object { $_.Name -match "service|soa_bus" } | Format-Table Name, LastWriteTime
 
 Write-Host ""
 Write-Host "🚀 Para iniciar todos los servicios, ejecuta:" -ForegroundColor Green
