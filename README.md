@@ -45,7 +45,20 @@ chmod +x build-setup.sh
 .\build-setup.ps1
 ```
 
-3. Build and start all services:
+3. Clean any previous Docker artifacts (if this is a rebuild):
+
+**For Linux/Mac:**
+```bash
+chmod +x docker-cleanup.sh
+./docker-cleanup.sh
+```
+
+**For Windows:**
+```powershell
+.\docker-cleanup.ps1
+```
+
+4. Build and start all services:
 ```bash
 docker-compose up --build
 ```
@@ -121,25 +134,46 @@ After running the setup script, your directory structure should look like this:
 
 ## Troubleshooting
 
-1. If a service fails to start, check its logs:
+1. If you get 'ContainerConfig' errors, run the cleanup script first:
+```bash
+# Linux/Mac
+./docker-cleanup.sh
+
+# Windows
+.\docker-cleanup.ps1
+```
+
+2. If a service fails to start, check its logs:
 ```bash
 docker-compose logs <service-name>
 ```
 
-2. To restart a specific service:
+3. To restart a specific service:
 ```bash
 docker-compose restart <service-name>
 ```
 
-3. To view all running containers:
+4. To view all running containers:
 ```bash
 docker-compose ps
 ```
 
-4. If the client can't connect to the SOA Bus, ensure:
+5. If the client can't connect to the SOA Bus, ensure:
    - All services are running: `docker-compose ps`
    - Port 8000 is accessible from the host
    - No firewall is blocking the connection
+
+6. For a complete fresh start:
+```bash
+# Stop everything
+docker-compose down
+
+# Clean up
+./docker-cleanup.sh  # or docker-cleanup.ps1 on Windows
+
+# Rebuild everything
+docker-compose up --build
+```
 
 ## Ports
 

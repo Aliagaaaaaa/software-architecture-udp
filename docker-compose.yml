@@ -1,13 +1,6 @@
 version: '3.8'
 
 services:
-  # Base image build
-  base:
-    build:
-      context: .
-      dockerfile: Dockerfile.base
-    image: soa-base:latest
-
   # SOA Bus
   soa-bus:
     build:
@@ -17,8 +10,6 @@ services:
       - "8000:8000"
     networks:
       - soa-network
-    depends_on:
-      - base
 
   # Notification Service
   notification-service:
@@ -30,7 +21,6 @@ services:
     networks:
       - soa-network
     depends_on:
-      - base
       - soa-bus
 
   # Auth Service
@@ -43,7 +33,6 @@ services:
     networks:
       - soa-network
     depends_on:
-      - base
       - soa-bus
 
   # Message Service  
@@ -56,7 +45,6 @@ services:
     networks:
       - soa-network
     depends_on:
-      - base
       - soa-bus
 
   # Forum Service
@@ -69,7 +57,6 @@ services:
     networks:
       - soa-network
     depends_on:
-      - base
       - soa-bus
 
   # Post Service
@@ -82,7 +69,6 @@ services:
     networks:
       - soa-network
     depends_on:
-      - base
       - soa-bus
 
   # Comment Service
@@ -95,7 +81,6 @@ services:
     networks:
       - soa-network
     depends_on:
-      - base
       - soa-bus
 
   # Event Service
@@ -108,7 +93,6 @@ services:
     networks:
       - soa-network
     depends_on:
-      - base
       - soa-bus
 
   # Report Service
@@ -121,7 +105,6 @@ services:
     networks:
       - soa-network
     depends_on:
-      - base
       - soa-bus
 
   # Profile Service
@@ -134,7 +117,6 @@ services:
     networks:
       - soa-network
     depends_on:
-      - base
       - soa-bus
 
 
