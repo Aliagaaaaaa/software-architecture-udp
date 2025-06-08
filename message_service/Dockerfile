@@ -4,7 +4,7 @@ FROM soa-base:latest
 COPY message_service.py .
 
 # Expose the service port
-EXPOSE 8002
+EXPOSE 8008
 
 # Run the service
 CMD ["python", "message_service.py"] 

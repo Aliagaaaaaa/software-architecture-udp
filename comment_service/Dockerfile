@@ -4,7 +4,7 @@ FROM soa-base:latest
 COPY comment_service.py .
 
 # Expose the service port
-EXPOSE 8005
+EXPOSE 8006
 
 # Run the service
 CMD ["python", "comment_service.py"] 

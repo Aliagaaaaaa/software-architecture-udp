@@ -15,4 +15,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY soa_service_base.py .
 COPY soa_protocol.py .
 COPY database_client.py .
-COPY services_config.py . 
+COPY services_config.py .
+COPY notification_helper.py . 

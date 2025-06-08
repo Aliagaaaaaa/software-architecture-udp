@@ -4,7 +4,7 @@ FROM soa-base:latest
 COPY prof_service.py .
 
 # Expose the service port
-EXPOSE 8008
+EXPOSE 8002
 
-# Run the service
-CMD ["python", "prof_service.py"] 
+# Run the service with explicit port
+CMD ["python", "-c", "import prof_service; prof_service.ProfileService(port=8002).start_service()"] 

@@ -4,7 +4,7 @@ FROM soa-base:latest
 COPY post_service.py .
 
 # Expose the service port
-EXPOSE 8004
+EXPOSE 8005
 
 # Run the service
 CMD ["python", "post_service.py"] 

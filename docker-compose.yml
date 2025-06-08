@@ -46,13 +46,13 @@ services:
       - base
       - soa-bus
 
-  # Message Service
+  # Message Service  
   message-service:
     build:
       context: .
       dockerfile: message_service/Dockerfile
     ports:
-      - "8002:8002"
+      - "8008:8008"
     networks:
       - soa-network
     depends_on:
@@ -78,7 +78,7 @@ services:
       context: .
       dockerfile: post_service/Dockerfile
     ports:
-      - "8004:8004"
+      - "8005:8005"
     networks:
       - soa-network
     depends_on:
@@ -91,7 +91,7 @@ services:
       context: .
       dockerfile: comment_service/Dockerfile
     ports:
-      - "8005:8005"
+      - "8006:8006"
     networks:
       - soa-network
     depends_on:
@@ -104,7 +104,7 @@ services:
       context: .
       dockerfile: event_service/Dockerfile
     ports:
-      - "8006:8006"
+      - "8007:8007"
     networks:
       - soa-network
     depends_on:
@@ -117,7 +117,7 @@ services:
       context: .
       dockerfile: report_service/Dockerfile
     ports:
-      - "8007:8007"
+      - "8009:8009"
     networks:
       - soa-network
     depends_on:
@@ -130,7 +130,7 @@ services:
       context: .
       dockerfile: prof_service/Dockerfile
     ports:
-      - "8008:8008"
+      - "8002:8002"
     networks:
       - soa-network
     depends_on:
