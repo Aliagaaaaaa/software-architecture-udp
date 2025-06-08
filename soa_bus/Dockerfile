@@ -19,5 +19,5 @@ COPY services_config.py .
 # Expose the bus port
 EXPOSE 8000
 
-# Run the bus
-CMD ["python", "soa_server.py"] 
+# Run the bus on 0.0.0.0 to accept connections from other containers
+CMD ["python", "-c", "from soa_server import SOAServer; server = SOAServer(host='0.0.0.0', port=8000); server.start_server()"] 
