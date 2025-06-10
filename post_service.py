@@ -16,7 +16,7 @@ from soa_service_base import SOAServiceBase
 class PostService(SOAServiceBase):
     def __init__(self, host: str = 'localhost', port: int = 8005):
         super().__init__(
-            service_name="post",
+            service_name="POSTS",
             description="Servicio de gestión de posts en foros de discusión",
             host=host,
             port=port

@@ -15,7 +15,7 @@ from soa_service_base import SOAServiceBase
 class NotificationService(SOAServiceBase):
     def __init__(self, host: str = 'localhost', port: int = 8010):
         super().__init__(
-            service_name="notif",
+            service_name="NOTIF",
             description="Servicio de gestión de notificaciones",
             host=host,
             port=port

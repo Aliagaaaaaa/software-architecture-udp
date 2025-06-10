@@ -16,7 +16,7 @@ from soa_service_base import SOAServiceBase
 class ReportService(SOAServiceBase):
     def __init__(self, host: str = 'localhost', port: int = 8009):
         super().__init__(
-            service_name="reprt",
+            service_name="REPOR",
             description="Servicio de gestión de reportes",
             host=host,
             port=port

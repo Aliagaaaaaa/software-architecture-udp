@@ -16,7 +16,7 @@ from soa_service_base import SOAServiceBase
 class ForumService(SOAServiceBase):
     def __init__(self, host: str = 'localhost', port: int = 8003):
         super().__init__(
-            service_name="forum",
+            service_name="FORUM",
             description="Servicio de gestión de foros de discusión",
             host=host,
             port=port

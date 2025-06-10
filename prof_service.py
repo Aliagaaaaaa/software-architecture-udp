@@ -16,7 +16,7 @@ from database_client import DatabaseClient
 class ProfileService(SOAServiceBase):
     def __init__(self, host: str = 'localhost', port: int = 0, proxy_url: str = "https://d1-database-proxy.maliagapacheco.workers.dev/query"):
         super().__init__(
-            service_name="prof",
+            service_name="PROFS",
             host=host,
             port=port,
             description="Servicio de gestión de perfiles de usuario con avatar y biografía (requiere autenticación)"

@@ -10,7 +10,7 @@ from database_client import DatabaseClient
 class AuthService(SOAServiceBase):
     def __init__(self, host: str = 'localhost', port: int = 0, proxy_url: str = "https://d1-database-proxy.maliagapacheco.workers.dev/query"):
         super().__init__(
-            service_name="auth",
+            service_name="AUTH_",
             host=host,
             port=port,
             description="Servicio de autenticación con JWT y base de datos remota via HTTP"

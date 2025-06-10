@@ -16,7 +16,7 @@ from notification_helper import NotificationHelper
 class MessageService(SOAServiceBase):
     def __init__(self, host: str = 'localhost', port: int = 8008):
         super().__init__(
-            service_name="msg",
+            service_name="MSGES",
             description="Servicio de gestión de mensajes",
             host=host,
             port=port

@@ -42,14 +42,14 @@ class SOAClient:
     
     def call_service(self, service_name: str, method: str, params_str: str = "") -> Dict[str, Any]:
         # Lista de servicios que requieren autenticación
-        auth_required_services = ["prof", "forum", "post", "comm", "event", "msg", "reprt", "notif"]
+        auth_required_services = ["PROFS", "FORUM", "POSTS", "COMMS", "EVNTS", "MSGES", "REPOR", "NOTIF"]
         
         # Lista de métodos de auth que NO necesitan token automático (porque son para obtener el token)
         auth_methods_no_token = ["login", "register", "info"]
-        
+                
         # Si es un servicio que requiere autenticación y tenemos token
-        if (service_name in auth_required_services or 
-            (service_name == "auth" and method not in auth_methods_no_token)):
+        if (service_name in auth_required_services or
+            (service_name == "AUTH_" and method not in auth_methods_no_token)):
             
             if self.current_token:
                 # Anteponer el token a los parámetros automáticamente
@@ -152,7 +152,7 @@ class SOAClient:
     def auth_login(self, email: str, password: str) -> Dict[str, Any]:
         """Autentica un usuario en el servicio de autenticación"""
         params = f"{email} {password}"
-        response = self.call_service("auth", "login", params)
+        response = self.call_service("AUTH_", "login", params)
         
         if response.get('status') == 'success':
             try:

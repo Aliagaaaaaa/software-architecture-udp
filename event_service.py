@@ -16,7 +16,7 @@ from soa_service_base import SOAServiceBase
 class EventService(SOAServiceBase):
     def __init__(self, host: str = 'localhost', port: int = 8007):
         super().__init__(
-            service_name="event",
+            service_name="EVNTS",
             description="Servicio de gestión de eventos",
             host=host,
             port=port

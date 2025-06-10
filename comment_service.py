@@ -16,7 +16,7 @@ from soa_service_base import SOAServiceBase
 class CommentService(SOAServiceBase):
     def __init__(self, host: str = 'localhost', port: int = 8006):
         super().__init__(
-            service_name="comm",
+            service_name="COMMS",
             description="Servicio de gestión de comentarios en posts",
             host=host,
             port=port
