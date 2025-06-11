@@ -146,6 +146,31 @@ services:
     depends_on:
       - soa-bus
 
+  gateway:
+    build:
+      context: ./gateway
+    ports:
+      - "3001:3001"
+    networks:
+      - soa-network
+    depends_on:
+      - soa-bus
+    volumes:
+      - ./gateway:/app
+
+  frontend:
+    build:
+      context: ./FRONTEND-nuevo
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./FRONTEND-nuevo:/app
+      - /app/node_modules
+    networks:
+      - soa-network
+    depends_on:
+      - gateway  
 
 
 networks:
