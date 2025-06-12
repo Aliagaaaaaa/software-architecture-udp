@@ -2,7 +2,7 @@ import WebSocket, { WebSocketServer } from "ws";
 import net from "net";
 
 const WS_PORT = 3001;
-const TCP_HOST = "localhost"; // nombre del servicio en Docker
+const TCP_HOST = "soa-bus"; // nombre del servicio en Docker
 const TCP_PORT = 8000;
 
 const wss = new WebSocketServer({ port: WS_PORT }, () => {
