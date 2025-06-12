@@ -122,14 +122,29 @@ class ForumService(SOAServiceBase):
             
             if result.get('success') and result.get('results'):
                 user_data = result['results'][0]
-                user_info = {
-                    "success": True,
-                    "user": {
-                        "id_usuario": user_data[0],
-                        "email": user_data[1],
-                        "rol": user_data[2]
+                
+                # La base de datos devuelve dictionaries, no tuples
+                if isinstance(user_data, dict):
+                    # Formato dictionary: {'id_usuario': 1, 'email': 'test@email.com', 'rol': 'estudiante'}
+                    user_info = {
+                        "success": True,
+                        "user": {
+                            "id_usuario": user_data.get('id_usuario'),
+                            "email": user_data.get('email'),
+                            "rol": user_data.get('rol')
+                        }
                     }
-                }
+                else:
+                    # Formato tuple/list: [1, 'test@email.com', 'estudiante'] (fallback)
+                    user_info = {
+                        "success": True,
+                        "user": {
+                            "id_usuario": user_data[0],
+                            "email": user_data[1],
+                            "rol": user_data[2]
+                        }
+                    }
+                
                 self.logger.info(f"Usuario encontrado: {user_info}")
                 return user_info
             else:
@@ -149,6 +164,15 @@ class ForumService(SOAServiceBase):
         except ValueError:
             # Si falla shlex, hacer split simple como fallback
             return params_str.split()
+
+    def _extract_db_fields(self, row_data, field_names):
+        """Helper para extraer campos de una fila de base de datos, manejando tanto dict como tuple"""
+        if isinstance(row_data, dict):
+            # Formato dictionary de la nueva API
+            return [row_data.get(field) for field in field_names]
+        else:
+            # Formato tuple/list (fallback)
+            return list(row_data[:len(field_names)])
 
     def register_method(self, name: str, method):
         """Método helper para registrar métodos manualmente si es necesario"""
@@ -275,18 +299,21 @@ class ForumService(SOAServiceBase):
             if result.get('success') and result.get('results'):
                 forum_data = result['results'][0]
                 
+                # Extraer campos usando el helper que maneja dict/tuple
+                fields = self._extract_db_fields(forum_data, ['id_foro', 'titulo', 'categoria', 'creador_id', 'created_at', 'updated_at'])
+                
                 # Obtener información del creador
-                user_info = self._get_user_by_id(forum_data[3])
+                user_info = self._get_user_by_id(fields[3])
                 creator_email = user_info['user']['email'] if user_info.get('success') else 'Desconocido'
                 
                 forum = {
-                    "id_foro": forum_data[0],
-                    "titulo": forum_data[1],
-                    "categoria": forum_data[2],
-                    "creador_id": forum_data[3],
+                    "id_foro": fields[0],
+                    "titulo": fields[1],
+                    "categoria": fields[2],
+                    "creador_id": fields[3],
                     "creador_email": creator_email,
-                    "created_at": forum_data[4],
-                    "updated_at": forum_data[5]
+                    "created_at": fields[4],
+                    "updated_at": fields[5]
                 }
                 
                 return json.dumps({
@@ -329,14 +356,17 @@ class ForumService(SOAServiceBase):
             if result.get('success'):
                 forums = []
                 for forum_data in result.get('results', []):
+                    # Extraer campos usando el helper que maneja dict/tuple
+                    fields = self._extract_db_fields(forum_data, ['id_foro', 'titulo', 'categoria', 'creador_id', 'created_at', 'updated_at', 'creador_email'])
+                    
                     forum = {
-                        "id_foro": forum_data[0],
-                        "titulo": forum_data[1],
-                        "categoria": forum_data[2],
-                        "creador_id": forum_data[3],
-                        "created_at": forum_data[4],
-                        "updated_at": forum_data[5],
-                        "creador_email": forum_data[6] or 'Desconocido'
+                        "id_foro": fields[0],
+                        "titulo": fields[1],
+                        "categoria": fields[2],
+                        "creador_id": fields[3],
+                        "created_at": fields[4],
+                        "updated_at": fields[5],
+                        "creador_email": fields[6] or 'Desconocido'
                     }
                     forums.append(forum)
                 
@@ -384,14 +414,17 @@ class ForumService(SOAServiceBase):
             if result.get('success'):
                 forums = []
                 for forum_data in result.get('results', []):
+                    # Extraer campos usando el helper que maneja dict/tuple
+                    fields = self._extract_db_fields(forum_data, ['id_foro', 'titulo', 'categoria', 'creador_id', 'created_at', 'updated_at', 'creador_email'])
+                    
                     forum = {
-                        "id_foro": forum_data[0],
-                        "titulo": forum_data[1],
-                        "categoria": forum_data[2],
-                        "creador_id": forum_data[3],
-                        "created_at": forum_data[4],
-                        "updated_at": forum_data[5],
-                        "creador_email": forum_data[6] or user_payload.get('email', 'Desconocido')
+                        "id_foro": fields[0],
+                        "titulo": fields[1],
+                        "categoria": fields[2],
+                        "creador_id": fields[3],
+                        "created_at": fields[4],
+                        "updated_at": fields[5],
+                        "creador_email": fields[6] or user_payload.get('email', 'Desconocido')
                     }
                     forums.append(forum)
                 

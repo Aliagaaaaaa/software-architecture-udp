@@ -32,14 +32,27 @@ export default function Forums() {
 
     const socket = new WebSocket("ws://localhost:3001")
     socket.onopen = () => {
-      socket.send("FORUM_getall")
+      socket.send("FORUMlist_forums " + token)
     }
 
     socket.onmessage = (event) => {
-      if (event.data.startsWith("FORUM_")) {
+      // Buscar el patrón que indica respuesta de foros
+      if (event.data.includes("FORUMOK")) {
         try {
-          const json = JSON.parse(event.data.slice("FORUM_".length))
-          setForos(json.foros || [])
+          // Extraer el JSON que viene después del código de respuesta
+          const forumOkIndex = event.data.indexOf("FORUMOK")
+          const jsonString = event.data.slice(forumOkIndex + "FORUMOK".length)
+          const json = JSON.parse(jsonString)
+          
+          if (json.success && json.forums) {
+            // Mapear los datos a la estructura esperada por el componente
+            const forosFormateados = json.forums.map((foro: any) => ({
+              id: foro.id_foro,
+              titulo: foro.titulo,
+              descripcion: foro.categoria || "Sin descripción"
+            }))
+            setForos(forosFormateados)
+          }
         } catch (err) {
           console.error("Error al parsear foros:", err)
         }
