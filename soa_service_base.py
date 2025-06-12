@@ -18,16 +18,23 @@ class SOAServiceBase(ABC):
                  description: str = "", soa_server_host: str = 'localhost', 
                  soa_server_port: int = 8000):
         self.service_name = service_name
-        self.host = host
+        
+        # Auto-detect Docker environment and use container hostname
+        if self._is_running_in_docker():
+            # Use container hostname for service registration
+            self.host = socket.gethostname()
+            self.logger = logging.getLogger(f'SOA_Service_{service_name}')
+            self.logger.info(f"Docker detected - using container hostname: {self.host}")
+        else:
+            self.host = host
+            self.logger = logging.getLogger(f'SOA_Service_{service_name}')
+        
         self.port = port
         self.description = description
         
         # Use environment variables if available, otherwise use defaults
         self.soa_server_host = os.getenv('SOA_SERVER_HOST', soa_server_host)
         self.soa_server_port = int(os.getenv('SOA_SERVER_PORT', soa_server_port))
-        
-        
-        self.logger = logging.getLogger(f'SOA_Service_{service_name}')
         
         
         self.socket = None
@@ -38,6 +45,34 @@ class SOAServiceBase(ABC):
         
         
         self._register_methods()
+    
+    def _is_running_in_docker(self) -> bool:
+        """Detect if running inside a Docker container"""
+        try:
+            # Check for /.dockerenv file
+            if os.path.exists('/.dockerenv'):
+                return True
+            
+            # Check cgroup for docker
+            with open('/proc/1/cgroup', 'r') as f:
+                content = f.read()
+                if 'docker' in content or 'containerd' in content:
+                    return True
+        except:
+            pass
+        
+        # Check for Docker-specific environment variables
+        return os.getenv('HOSTNAME') and (
+            os.getenv('HOSTNAME').startswith('auth-service') or
+            os.getenv('HOSTNAME').startswith('profile-service') or
+            os.getenv('HOSTNAME').startswith('forum-service') or
+            os.getenv('HOSTNAME').startswith('post-service') or
+            os.getenv('HOSTNAME').startswith('comment-service') or
+            os.getenv('HOSTNAME').startswith('event-service') or
+            os.getenv('HOSTNAME').startswith('message-service') or
+            os.getenv('HOSTNAME').startswith('report-service') or
+            os.getenv('HOSTNAME').startswith('notification-service')
+        )
     
     def _register_methods(self):
         for attr_name in dir(self):
@@ -51,7 +86,10 @@ class SOAServiceBase(ABC):
             
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.socket.bind((self.host, self.port))
+            
+            # In Docker, bind to 0.0.0.0 to accept connections from other containers
+            bind_host = '0.0.0.0' if self._is_running_in_docker() else self.host
+            self.socket.bind((bind_host, self.port))
             
             
             if self.port == 0:
@@ -60,7 +98,7 @@ class SOAServiceBase(ABC):
             self.socket.listen(5)
             self.running = True
             
-            self.logger.info(f"Servicio '{self.service_name}' iniciado en {self.host}:{self.port}")
+            self.logger.info(f"Servicio '{self.service_name}' iniciado en {bind_host}:{self.port} (registrado como {self.host}:{self.port})")
             self.logger.info("Usando protocolo NNNNNSSSSSDATOS")
             
             
