@@ -1,114 +1,99 @@
-"use client"
-
-import {
-  BadgeCheck,
-  Bell,
-  ChevronsUpDown,
-  CreditCard,
-  LogOut,
-  Sparkles,
-} from "lucide-react"
-
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
 } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  useSidebar,
-} from "@/components/ui/sidebar"
+  LogOut,
+  Settings,
+  User,
+  HelpCircle,
+  ChevronRight,
+} from "lucide-react"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
+import { useNavigate } from "react-router-dom"
 
-export function NavUser({
-  user,
-}: {
+type NavUserProps = {
   user: {
-    name: string
-    email: string
-    avatar: string
+    name?: string
+    email?: string
+    avatar?: string
+    rol?: string
   }
-}) {
-  const { isMobile } = useSidebar()
+}
+
+export function NavUser({ user }: NavUserProps) {
+  const navigate = useNavigate()
+  const avatarUrl = user?.avatar ?? "/avatars/default.jpg"
 
   return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
-              size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground md:h-8 md:p-0"
-            >
-              <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
-              </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{user.name}</span>
-                <span className="truncate text-xs">{user.email}</span>
-              </div>
-              <ChevronsUpDown className="ml-auto size-4" />
-            </SidebarMenuButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-            side={isMobile ? "bottom" : "right"}
-            align="end"
-            sideOffset={4}
-          >
-            <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">CN</AvatarFallback>
-                </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">{user.name}</span>
-                  <span className="truncate text-xs">{user.email}</span>
-                </div>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <Sparkles />
-                Upgrade to Pro
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <BadgeCheck />
-                Account
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <CreditCard />
-                Billing
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Bell />
-                Notifications
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <LogOut />
-              Log out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarMenuItem>
-    </SidebarMenu>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          className="relative flex w-full items-center justify-start gap-3 rounded-lg px-3 py-2 text-left"
+        >
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={avatarUrl} alt={user?.name ?? "User"} />
+            <AvatarFallback>
+              {user?.name?.[0]?.toUpperCase() ?? "U"}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex flex-col">
+            <p className="text-sm font-medium leading-none">{user?.name ?? "Invitado"}</p>
+            <p className="text-xs leading-none text-muted-foreground">
+              {user?.email ?? "Sin correo"}
+            </p>
+          </div>
+          <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" />
+        </Button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium leading-none">{user?.name ?? "Invitado"}</p>
+            <p className="text-xs leading-none text-muted-foreground">
+              {user?.email ?? "Sin correo"}
+            </p>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => navigate("/perfil")}>
+          <User className="mr-2 h-4 w-4" />
+          Perfil
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate("/configuracion")}>
+          <Settings className="mr-2 h-4 w-4" />
+          Configuración
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate("/ayuda")}>
+          <HelpCircle className="mr-2 h-4 w-4" />
+          Ayuda
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => navigate("/logout")}>
+          <LogOut className="mr-2 h-4 w-4" />
+          Cerrar sesión
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <div className="flex items-center justify-between px-3 py-2">
+          <Label htmlFor="modo-dev" className="text-sm">
+            Modo desarrollador
+          </Label>
+          <Switch id="modo-dev" />
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
