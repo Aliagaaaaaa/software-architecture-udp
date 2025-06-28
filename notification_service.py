@@ -25,7 +25,7 @@ class NotificationService(SOAServiceBase):
         self.db_client = DatabaseClient()
         
         # Secreto JWT (debe coincidir con auth_service)
-        self.jwt_secret = "mi_clave_secreta_super_segura_2024"
+        self.jwt_secret = "your-secret-key-here"
         
         # Configurar logging
         logging.basicConfig(level=logging.INFO)

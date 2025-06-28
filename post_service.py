@@ -10,7 +10,6 @@ import json
 import jwt
 from datetime import datetime
 from database_client import DatabaseClient
-from notification_helper import NotificationHelper
 from soa_service_base import SOAServiceBase
 
 class PostService(SOAServiceBase):
@@ -25,11 +24,8 @@ class PostService(SOAServiceBase):
         # Cliente de base de datos remota
         self.db_client = DatabaseClient()
         
-        # Helper de notificaciones
-        self.notification_helper = NotificationHelper()
-        
         # Secreto JWT (debe coincidir con auth_service)
-        self.jwt_secret = "mi_clave_secreta_super_segura_2024"
+        self.jwt_secret = "your-secret-key-here"  # En producción, usar variable de entorno
         
         # Configurar logging
         logging.basicConfig(level=logging.INFO)
@@ -260,37 +256,6 @@ class PostService(SOAServiceBase):
                 # Obtener información del autor
                 user_info = self._get_user_by_id(autor_id)
                 autor_email = user_info['user']['email'] if user_info.get('success') else 'Desconocido'
-                
-                # Notificar a participantes del foro sobre el nuevo post
-                try:
-                    # Obtener información del foro
-                    foro_info = self._get_foro_by_id(id_foro_int)
-                    foro_titulo = foro_info['foro']['titulo'] if foro_info.get('success') else 'Foro desconocido'
-                    
-                    # Obtener participantes del foro (usuarios que han posteado antes en este foro)
-                    participantes_query = """
-                    SELECT DISTINCT p.autor_id 
-                    FROM POST p 
-                    WHERE p.id_foro = ? AND p.autor_id != ?
-                    """
-                    participantes_result = self.db_client.execute_query(participantes_query, [id_foro_int, autor_id])
-                    
-                    if participantes_result.get('success') and participantes_result.get('results'):
-                        participantes_ids = []
-                        for participante_data in participantes_result['results']:
-                            # Extraer ID del participante
-                            participante_id = self._extract_db_fields(participante_data, ['autor_id'])[0]
-                            participantes_ids.append(participante_id)
-                        
-                        if participantes_ids:
-                            # Usar la función específica para posts del helper
-                            self.notification_helper.notify_new_post(
-                                participantes_ids, autor_email, foro_titulo, result.get('last_id'), autor_id
-                            )
-                            self.logger.info(f"🔔 Notificaciones enviadas a {len(participantes_ids)} participantes sobre nuevo post en '{foro_titulo}'")
-                    
-                except Exception as e:
-                    self.logger.warning(f"⚠️ Error enviando notificaciones de post: {e}")
                 
                 self.logger.info(f"💬 Post creado en foro {id_foro_int} por {autor_email}")
                 return json.dumps({

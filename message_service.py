@@ -11,7 +11,6 @@ import jwt
 from datetime import datetime
 from database_client import DatabaseClient
 from soa_service_base import SOAServiceBase
-from notification_helper import NotificationHelper
 
 class MessageService(SOAServiceBase):
     def __init__(self, host: str = 'localhost', port: int = 8008):
@@ -25,11 +24,8 @@ class MessageService(SOAServiceBase):
         # Cliente de base de datos remota
         self.db_client = DatabaseClient()
         
-        # Helper de notificaciones
-        self.notification_helper = NotificationHelper()
-        
         # Secreto JWT (debe coincidir con auth_service)
-        self.jwt_secret = "mi_clave_secreta_super_segura_2024"
+        self.jwt_secret = "your-secret-key-here"  # En producción, usar variable de entorno
         
         # Configurar logging
         logging.basicConfig(level=logging.INFO)
@@ -245,16 +241,6 @@ class MessageService(SOAServiceBase):
                 emisor_email = emisor_info['user']['email'] if emisor_info.get('success') else 'Desconocido'
                 
                 self.logger.info(f"💬 Mensaje enviado de {emisor_email} a {email_receptor}")
-                
-                # Crear notificación para el receptor
-                mensaje_id = result.get('lastrowid')  # ID del mensaje recién creado
-                if mensaje_id:
-                    self.notification_helper.notify_new_message(
-                        receptor_id=receptor_id,
-                        emisor_email=emisor_email,
-                        contenido_preview=contenido,
-                        mensaje_id=mensaje_id
-                    )
                 
                 return json.dumps({
                     "success": True, 

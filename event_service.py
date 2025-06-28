@@ -10,7 +10,6 @@ import json
 import jwt
 from datetime import datetime, date
 from database_client import DatabaseClient
-from notification_helper import NotificationHelper
 from soa_service_base import SOAServiceBase
 
 class EventService(SOAServiceBase):
@@ -25,11 +24,8 @@ class EventService(SOAServiceBase):
         # Cliente de base de datos remota
         self.db_client = DatabaseClient()
         
-        # Helper de notificaciones
-        self.notification_helper = NotificationHelper()
-        
         # Secreto JWT (debe coincidir con auth_service)
-        self.jwt_secret = "mi_clave_secreta_super_segura_2024"
+        self.jwt_secret = "your-secret-key-here"  # En producción, usar variable de entorno
         
         # Configurar logging
         logging.basicConfig(level=logging.INFO)
@@ -217,20 +213,6 @@ class EventService(SOAServiceBase):
                 # Obtener información del creador
                 user_info = self._get_user_by_id(creador_id)
                 creador_email = user_info['user']['email'] if user_info.get('success') else 'Desconocido'
-                
-                # Notificar a otros usuarios sobre el nuevo evento
-                try:
-                    # Obtener IDs de usuarios para notificar (excluyendo al creador)
-                    usuarios_ids = self.notification_helper.get_all_users_ids(exclude_user_id=creador_id)
-                    
-                    if usuarios_ids:
-                        # Usar la función específica para eventos del helper
-                        self.notification_helper.notify_new_event(
-                            usuarios_ids, creador_email, nombre, fecha, result.get('last_id')
-                        )
-                        self.logger.info(f"🔔 Notificaciones enviadas a {len(usuarios_ids)} usuarios sobre nuevo evento '{nombre}'")
-                except Exception as e:
-                    self.logger.warning(f"⚠️ Error enviando notificaciones de evento: {e}")
                 
                 self.logger.info(f"📅 Evento '{nombre}' creado por {creador_email}")
                 return json.dumps({

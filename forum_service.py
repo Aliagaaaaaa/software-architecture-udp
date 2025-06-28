@@ -10,7 +10,6 @@ import json
 import jwt
 from datetime import datetime
 from database_client import DatabaseClient
-from notification_helper import NotificationHelper
 from soa_service_base import SOAServiceBase
 
 class ForumService(SOAServiceBase):
@@ -25,11 +24,8 @@ class ForumService(SOAServiceBase):
         # Cliente de base de datos remota
         self.db_client = DatabaseClient()
         
-        # Helper de notificaciones
-        self.notification_helper = NotificationHelper()
-        
         # Secreto JWT (debe coincidir con auth_service)
-        self.jwt_secret = "mi_clave_secreta_super_segura_2024"
+        self.jwt_secret = "your-secret-key-here"  # En producción, usar variable de entorno
         
         # Configurar logging
         logging.basicConfig(level=logging.INFO)
@@ -37,6 +33,16 @@ class ForumService(SOAServiceBase):
         
         # Inicializar base de datos
         self._init_database()
+        
+        # Registrar métodos específicos del servicio
+        self.register_method("create_forum", self.service_create_forum)
+        self.register_method("get_forum", self.service_get_forum)
+        self.register_method("list_forums", self.service_list_forums)
+        self.register_method("list_my_forums", self.service_list_my_forums)
+        self.register_method("update_forum", self.service_update_forum)
+        self.register_method("delete_forum", self.service_delete_forum)
+        self.register_method("admin_delete_forum", self.service_admin_delete_forum)
+        self.register_method("info", self.service_info)
         
         self.logger.info("🗣️ Servicio de Foros inicializado")
 
@@ -232,24 +238,6 @@ class ForumService(SOAServiceBase):
             self.logger.info(f"Resultado de insert: {result}")
             
             if result.get('success'):
-                # Notificar a otros usuarios sobre el nuevo foro
-                try:
-                    # Obtener información del creador
-                    user_info = self._get_user_by_id(creador_id)
-                    creador_email = user_info['user']['email'] if user_info.get('success') else 'Desconocido'
-                    
-                    # Obtener IDs de usuarios para notificar (excluyendo al creador)
-                    usuarios_ids = self.notification_helper.get_all_users_ids(exclude_user_id=creador_id)
-                    
-                    if usuarios_ids:
-                        # Usar la función específica para foros del helper
-                        self.notification_helper.notify_new_forum(
-                            usuarios_ids, creador_email, titulo, result.get('last_id')
-                        )
-                        self.logger.info(f"🔔 Notificaciones enviadas a {len(usuarios_ids)} usuarios sobre nuevo foro '{titulo}'")
-                except Exception as e:
-                    self.logger.warning(f"⚠️ Error enviando notificaciones de foro: {e}")
-                
                 # Por ahora, simplificar la respuesta para evitar errores adicionales
                 self.logger.info(f"📝 Foro creado exitosamente: {titulo}")
                 return json.dumps({

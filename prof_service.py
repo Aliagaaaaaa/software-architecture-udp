@@ -23,7 +23,7 @@ class ProfileService(SOAServiceBase):
         )
         
         # Configuración JWT (debe coincidir con auth_service)
-        self.jwt_secret = "mi_clave_secreta_super_segura_2024"
+        self.jwt_secret = "your-secret-key-here"
         self.jwt_algorithm = "HS256"
         
         # Cliente de base de datos HTTP

@@ -17,7 +17,7 @@ class AuthService(SOAServiceBase):
         )
         
         # Clave secreta para JWT (en producción debería estar en variables de entorno)
-        self.jwt_secret = "mi_clave_secreta_super_segura_2024"
+        self.jwt_secret = "your-secret-key-here"
         self.jwt_algorithm = "HS256"
         self.jwt_expiration_hours = 24
         

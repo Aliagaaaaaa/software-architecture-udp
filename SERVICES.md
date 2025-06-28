@@ -1,5 +1,15 @@
 # Service Command Summary
 
+## Important Note about Notifications
+
+**Centralized Notification System**: As of the latest version, notifications are handled centrally by the **Notification Service**. Individual services (Comment, Post, Message, Event, Forum, Report) no longer automatically create notifications when content is created or updated. 
+
+If you need to send notifications for user actions, you must:
+1. Complete the action in the respective service (e.g., create a post)
+2. Separately call the notification service to create the appropriate notification
+
+This change provides better separation of concerns and allows for more flexible notification management.
+
 ## Auth Service (`auth_service.py`)
 **Class:** `AuthService`
 **Methods:**
@@ -110,6 +120,7 @@
     - Description: Crea un nuevo comentario en un post (requiere autenticación).
     - Parameters (from `params_str`): `token`, `id_post`, `contenido`
     - Example: `00048COMMScreate_comment USER_TOKEN POST_ID 'Comment content here'`
+    - Note: This service no longer automatically creates notifications. Use the notification service directly if needed.
     - #### Possible Responses
         - **Successful Response Example:**
           ```
@@ -226,6 +237,7 @@
     - Description: Crea un nuevo evento (requiere autenticación).
     - Parameters (from `params_str`): `token`, `nombre`, `descripcion`, `fecha`
     - Example: `00062EVNTScreate_event USER_TOKEN 'Event Name' 'Event Description' 2024-12-31`
+    - Note: This service no longer automatically creates notifications. Use the notification service directly if needed.
     - #### Possible Responses
         - **Successful Response Example:**
           ```
@@ -342,6 +354,7 @@
     - Description: Crea un nuevo foro (requiere autenticación).
     - Parameters (from `params_str`): `token`, `titulo`, `categoria`
     - Example: `00048FORUMcreate_forum USER_TOKEN 'Forum Title' 'Category'`
+    - Note: This service no longer automatically creates notifications. Use the notification service directly if needed.
     - #### Possible Responses
         - **Successful Response Example:**
           ```
@@ -458,6 +471,7 @@
     - Description: Envía un mensaje a otro usuario (requiere autenticación).
     - Parameters (from `params_str`): `token`, `email_receptor`, `contenido`
     - Example: `00057MSGESsend_message USER_TOKEN RECIPIENT_EMAIL 'Message content'`
+    - Note: This service no longer automatically creates notifications. Use the notification service directly if needed.
     - #### Possible Responses
         - **Successful Response Example:**
           ```
@@ -704,6 +718,7 @@
     - Description: Crea un nuevo post en un foro (requiere autenticación).
     - Parameters (from `params_str`): `token`, `id_foro`, `contenido`
     - Example: `00045POSTScreate_post USER_TOKEN FORUM_ID 'Post content here'`
+    - Note: This service no longer automatically creates notifications. Use the notification service directly if needed.
     - #### Possible Responses
         - **Successful Response Example:**
           ```
@@ -936,6 +951,7 @@
     - Description: Crea un nuevo reporte de contenido (requiere autenticación).
     - Parameters (from `params_str`): `token`, `contenido_id`, `tipo_contenido`, `razon`
     - Example: `00064REPORcreate_report USER_TOKEN CONTENT_ID post 'Reason for report'`
+    - Note: This service no longer automatically creates notifications. Use the notification service directly if needed.
     - #### Possible Responses
         - **Successful Response Example:**
           ```
@@ -992,6 +1008,7 @@
     - Description: Actualiza el estado de un reporte (solo moderadores).
     - Parameters (from `params_str`): `token`, `id_reporte`, `estado`
     - Example: `00053REPORupdate_report_status USER_TOKEN REPORT_ID resolved`
+    - Note: This service no longer automatically creates notifications. Use the notification service directly if needed.
     - #### Possible Responses
         - **Successful Response Example:**
           ```

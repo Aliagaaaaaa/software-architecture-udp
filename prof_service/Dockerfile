@@ -16,7 +16,6 @@ COPY soa_service_base.py .
 COPY soa_protocol.py .
 COPY database_client.py .
 COPY services_config.py .
-COPY notification_helper.py .
 
 # Copy service-specific files
 COPY prof_service.py .

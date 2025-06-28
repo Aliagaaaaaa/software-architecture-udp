@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Servicio de Gestión de Reportes - SOA
-Permite reportar contenido inapropiado (posts y comentarios)
+Report Service - SOA
+Servicio de gestión de reportes de contenido
 """
 
 import logging
@@ -10,35 +10,30 @@ import json
 import jwt
 from datetime import datetime
 from database_client import DatabaseClient
-from notification_helper import NotificationHelper
 from soa_service_base import SOAServiceBase
 
 class ReportService(SOAServiceBase):
     def __init__(self, host: str = 'localhost', port: int = 8009):
-        super().__init__(
-            service_name="REPOR",
-            description="Servicio de gestión de reportes",
-            host=host,
-            port=port
-        )
-        
-        # Cliente de base de datos remota
+        super().__init__(host, port, service_name="reprt")
         self.db_client = DatabaseClient()
+        self.jwt_secret = "your-secret-key-here"  # En producción, usar variable de entorno
         
-        # Helper de notificaciones
-        self.notification_helper = NotificationHelper()
-        
-        # Secreto JWT (debe coincidir con auth_service)
-        self.jwt_secret = "mi_clave_secreta_super_segura_2024"
-        
-        # Configurar logging
-        logging.basicConfig(level=logging.INFO)
-        self.logger = logging.getLogger(f'ReportService-{port}')
+        # Configurar logging específico para este servicio
+        self.logger = logging.getLogger('ReportService')
+        self.logger.setLevel(logging.INFO)
         
         # Inicializar base de datos
         self._init_database()
         
-        self.logger.info("📋 Servicio de Reportes inicializado")
+        # Registrar métodos específicos del servicio
+        self.register_method("create_report", self.service_create_report)
+        self.register_method("get_report", self.service_get_report)
+        self.register_method("list_reports", self.service_list_reports)
+        self.register_method("list_my_reports", self.service_list_my_reports)
+        self.register_method("update_report_status", self.service_update_report_status)
+        self.register_method("delete_report", self.service_delete_report)
+        self.register_method("admin_delete_report", self.service_admin_delete_report)
+        self.register_method("info", self.service_info)
 
     def _process_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
         """Override para manejar correctamente parámetros con comillas"""
@@ -242,18 +237,6 @@ class ReportService(SOAServiceBase):
                 # Obtener información del usuario que reporta
                 user_info = self._get_user_by_id(reportado_por)
                 reportador_email = user_info['user']['email'] if user_info.get('success') else 'Desconocido'
-                
-                # Notificar a moderadores sobre el nuevo reporte
-                try:
-                    moderadores_ids = self.notification_helper.get_moderators_ids()
-                    if moderadores_ids:
-                        # Usar la función específica para reportes del helper
-                        self.notification_helper.notify_new_report(
-                            moderadores_ids, tipo_contenido, int(contenido_id), reportador_email, result.get('last_id')
-                        )
-                        self.logger.info(f"🔔 Notificaciones enviadas a {len(moderadores_ids)} moderadores sobre reporte de {tipo_contenido}")
-                except Exception as e:
-                    self.logger.warning(f"⚠️ Error enviando notificaciones de reporte: {e}")
                 
                 self.logger.info(f"📋 Reporte creado: {tipo_contenido} {contenido_id} por {reportador_email}")
                 return json.dumps({
@@ -533,32 +516,6 @@ class ReportService(SOAServiceBase):
             result = self.db_client.execute_query(update_query, [nuevo_estado, user_id, now, id_reporte])
             
             if result.get('success'):
-                # Notificar al reportador sobre el cambio de estado
-                try:
-                    # Obtener información del reporte y reportador
-                    report_query = """
-                    SELECT r.reportado_por, r.tipo_contenido, u.email as reportador_email
-                    FROM REPORTE r
-                    LEFT JOIN USUARIO u ON r.reportado_por = u.id_usuario
-                    WHERE r.id_reporte = ?
-                    """
-                    report_result = self.db_client.execute_query(report_query, [id_reporte])
-                    
-                    if report_result.get('success') and report_result.get('results'):
-                        report_data = report_result['results'][0]
-                        fields = self._extract_db_fields(report_data, ['reportado_por', 'tipo_contenido', 'reportador_email'])
-                        reportador_id = fields[0]
-                        tipo_contenido = fields[1]
-                        
-                        # Notificar al reportador sobre el cambio de estado
-                        self.notification_helper.notify_report_status_change(
-                            reportador_id, nuevo_estado, tipo_contenido, int(id_reporte)
-                        )
-                        self.logger.info(f"🔔 Notificación enviada al reportador sobre cambio de estado a '{nuevo_estado}'")
-                        
-                except Exception as e:
-                    self.logger.warning(f"⚠️ Error enviando notificación de cambio de estado: {e}")
-                
                 self.logger.info(f"📋 Reporte {id_reporte} actualizado a '{nuevo_estado}' por {user_payload.get('email')}")
                 return json.dumps({
                     "success": True,

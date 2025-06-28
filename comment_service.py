@@ -10,7 +10,6 @@ import json
 import jwt
 from datetime import datetime
 from database_client import DatabaseClient
-from notification_helper import NotificationHelper
 from soa_service_base import SOAServiceBase
 
 class CommentService(SOAServiceBase):
@@ -25,11 +24,8 @@ class CommentService(SOAServiceBase):
         # Cliente de base de datos remota
         self.db_client = DatabaseClient()
         
-        # Helper de notificaciones
-        self.notification_helper = NotificationHelper()
-        
         # Secreto JWT (debe coincidir con auth_service)
-        self.jwt_secret = "mi_clave_secreta_super_segura_2024"
+        self.jwt_secret = "your-secret-key-here"  # En producción, usar variable de entorno
         
         # Configurar logging
         logging.basicConfig(level=logging.INFO)
@@ -252,41 +248,6 @@ class CommentService(SOAServiceBase):
                 # Obtener información del autor
                 user_info = self._get_user_by_id(autor_id)
                 autor_email = user_info['user']['email'] if user_info.get('success') else 'Desconocido'
-                
-                # Notificar a participantes del post sobre el nuevo comentario
-                try:
-                    # Obtener información del post
-                    post_info = self._get_post_by_id(id_post_int)
-                    post_contenido = post_info['post']['contenido'] if post_info.get('success') else 'Post desconocido'
-                    
-                    # Obtener participantes del post (autor del post + usuarios que han comentado antes)
-                    participantes_query = """
-                    SELECT DISTINCT p.autor_id as participante_id
-                    FROM POST p
-                    WHERE p.id_post = ? AND p.autor_id != ?
-                    UNION
-                    SELECT DISTINCT c.autor_id as participante_id
-                    FROM COMENTARIO c
-                    WHERE c.id_post = ? AND c.autor_id != ?
-                    """
-                    participantes_result = self.db_client.execute_query(participantes_query, [id_post_int, autor_id, id_post_int, autor_id])
-                    
-                    if participantes_result.get('success') and participantes_result.get('results'):
-                        participantes_ids = []
-                        for participante_data in participantes_result['results']:
-                            # Extraer ID del participante
-                            participante_id = self._extract_db_fields(participante_data, ['participante_id'])[0]
-                            participantes_ids.append(participante_id)
-                        
-                        if participantes_ids:
-                            # Usar la función específica para comentarios del helper
-                            self.notification_helper.notify_new_comment(
-                                participantes_ids, autor_email, post_contenido, result.get('last_id'), autor_id
-                            )
-                            self.logger.info(f"🔔 Notificaciones enviadas a {len(participantes_ids)} participantes sobre nuevo comentario")
-                    
-                except Exception as e:
-                    self.logger.warning(f"⚠️ Error enviando notificaciones de comentario: {e}")
                 
                 self.logger.info(f"💬 Comentario creado en post {id_post_int} por {autor_email}")
                 return json.dumps({
