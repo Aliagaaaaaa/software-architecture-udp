@@ -24,16 +24,6 @@ class ReportService(SOAServiceBase):
         
         # Inicializar base de datos
         self._init_database()
-        
-        # Registrar métodos específicos del servicio
-        self.register_method("create_report", self.service_create_report)
-        self.register_method("get_report", self.service_get_report)
-        self.register_method("list_reports", self.service_list_reports)
-        self.register_method("list_my_reports", self.service_list_my_reports)
-        self.register_method("update_report_status", self.service_update_report_status)
-        self.register_method("delete_report", self.service_delete_report)
-        self.register_method("admin_delete_report", self.service_admin_delete_report)
-        self.register_method("info", self.service_info)
 
     def _process_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
         """Override para manejar correctamente parámetros con comillas"""
