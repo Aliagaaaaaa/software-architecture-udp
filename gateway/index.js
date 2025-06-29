@@ -6,7 +6,7 @@ const TCP_HOST = "soa-bus"; // nombre del servicio en Docker
 const TCP_PORT = 8000;
 
 const wss = new WebSocketServer({ port: WS_PORT }, () => {
-  console.log(`✅ Gateway WebSocket iniciado en ws://localhost:${WS_PORT}`);
+  console.log(`✅ Gateway WebSocket iniciado en ws://4.228.228.99:${WS_PORT}`);
 });
 
 wss.on("connection", (ws) => {

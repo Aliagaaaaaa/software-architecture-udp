@@ -20,7 +20,7 @@ export function Register({ className, ...props }: React.ComponentProps<"div">) {
   const socketRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
-    const socket = new WebSocket("ws://localhost:3001")
+    const socket = new WebSocket("ws://4.228.228.99:3001")
     socketRef.current = socket
 
     socket.onopen = () => console.log("🔌 WebSocket conectado con gateway")

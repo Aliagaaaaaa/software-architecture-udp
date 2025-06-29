@@ -22,6 +22,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { useNavigate } from "react-router-dom"
+import { useAuth } from "@/hooks/useAuth"
 
 type NavUserProps = {
   user: {
@@ -34,7 +35,13 @@ type NavUserProps = {
 
 export function NavUser({ user }: NavUserProps) {
   const navigate = useNavigate()
+  const { logout } = useAuth()
   const avatarUrl = user?.avatar ?? "/avatars/default.jpg"
+
+  const handleLogout = () => {
+    logout()
+    navigate("/login")
+  }
 
   return (
     <DropdownMenu>
@@ -82,7 +89,7 @@ export function NavUser({ user }: NavUserProps) {
           Ayuda
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => navigate("/logout")}>
+        <DropdownMenuItem onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />
           Cerrar sesión
         </DropdownMenuItem>

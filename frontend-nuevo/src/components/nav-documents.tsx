@@ -1,5 +1,6 @@
 "use client"
 
+import { useNavigate } from "react-router-dom"
 import {
   IconDots,
   IconFolder,
@@ -35,6 +36,7 @@ export function NavDocuments({
   }[]
 }) {
   const { isMobile } = useSidebar()
+  const navigate = useNavigate()
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
@@ -42,11 +44,9 @@ export function NavDocuments({
       <SidebarMenu>
         {items.map((item) => (
           <SidebarMenuItem key={item.name}>
-            <SidebarMenuButton asChild>
-              <a href={item.url}>
-                <item.icon />
-                <span>{item.name}</span>
-              </a>
+            <SidebarMenuButton onClick={() => navigate(item.url)}>
+              <item.icon />
+              <span>{item.name}</span>
             </SidebarMenuButton>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

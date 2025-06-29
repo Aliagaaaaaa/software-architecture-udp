@@ -1,7 +1,7 @@
 // src/lib/ws.ts
 import ReconnectingWebSocket from "reconnecting-websocket";
 
-const WS_URL = "ws://localhost:8000"; // Cambia si usas otro puerto/gateway
+const WS_URL = "ws://4.228.228.99:8000"; // Cambia si usas otro puerto/gateway
 
 export const socket = new ReconnectingWebSocket(WS_URL);
 

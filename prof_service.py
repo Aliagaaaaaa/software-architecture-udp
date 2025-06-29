@@ -8,6 +8,7 @@ Utiliza base de datos remota vía HTTP proxy
 
 import json
 import jwt
+import shlex
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 from soa_service_base import SOAServiceBase
@@ -313,8 +314,16 @@ class ProfileService(SOAServiceBase):
         try:
             # Para profile service, mantenemos todos los parámetros como strings
             if isinstance(params, str) and params:
-                # Dividir parámetros por espacios pero mantener como strings
-                param_parts = params.split()
+                # Usar shlex para dividir parámetros respetando comillas
+                try:
+                    param_parts = shlex.split(params)
+                except ValueError as e:
+                    # Si hay error de parsing (comillas sin cerrar, etc)
+                    self.logger.error(f"Error parsing parameters: {e}")
+                    return {
+                        "status": "error",
+                        "message": f"Invalid parameter format: {str(e)}"
+                    }
                 
                 # Llamar al método con los parámetros apropiados
                 if len(param_parts) == 1:

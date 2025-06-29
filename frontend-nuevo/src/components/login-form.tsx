@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useAuth } from "@/hooks/useAuth"
 
 export function LoginForm({
   className,
@@ -21,11 +22,22 @@ export function LoginForm({
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [response, setResponse] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
   const socketRef = useRef<WebSocket | null>(null)
   const navigate = useNavigate()
+  const { isAuthenticated, isLoading: authLoading, updateToken } = useAuth()
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && !authLoading) {
+      navigate("/forums")
+    }
+  }, [isAuthenticated, authLoading, navigate])
 
   useEffect(() => {
-    const socket = new WebSocket("ws://localhost:3001")
+    if (authLoading) return // Don't create socket while auth is loading
+
+    const socket = new WebSocket("ws://4.228.228.99:3001")
     socketRef.current = socket
 
     socket.onopen = () => console.log("🔌 WebSocket conectado con gateway")
@@ -33,6 +45,7 @@ export function LoginForm({
     socket.onmessage = (event) => {
       console.log("📨 Respuesta del backend:", event.data)
       setResponse(event.data)
+      setIsLoading(false)
 
       const prefixIndex = event.data.indexOf("AUTH_OK")
       if (prefixIndex !== -1) {
@@ -40,12 +53,14 @@ export function LoginForm({
           const jsonStr = event.data.slice(prefixIndex + "AUTH_OK".length)
           const json = JSON.parse(jsonStr)
           if (json.token) {
-            localStorage.setItem("token", json.token)
+            updateToken(json.token)
             navigate("/forums")
           }
         } catch (err) {
           console.error("❌ Error procesando AUTH_OK:", err)
         }
+      } else if (event.data.includes("AUTH_NK")) {
+        setIsLoading(false)
       }
     }
 
@@ -53,10 +68,11 @@ export function LoginForm({
     socket.onclose = () => console.log("🔒 WebSocket cerrado")
 
     return () => socket.close()
-  }, [navigate])
+  }, [navigate, updateToken, authLoading])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    setIsLoading(true)
     const fullMessage = `AUTH_login ${email} ${password}`
 
     const socket = socketRef.current
@@ -71,6 +87,15 @@ export function LoginForm({
         }
       }, 100)
     }
+  }
+
+  // Show loading spinner while checking authentication
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    )
   }
 
   return (
@@ -98,6 +123,7 @@ export function LoginForm({
                 placeholder="usuario@udp.cl"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
                 required
               />
             </div>
@@ -109,11 +135,12 @@ export function LoginForm({
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                disabled={isLoading}
                 required
               />
             </div>
-            <Button type="submit" className="w-full">
-              Ingresar
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Iniciando sesión..." : "Ingresar"}
             </Button>
             {response && (
               <div className="text-sm text-muted-foreground text-center">
@@ -129,6 +156,17 @@ export function LoginForm({
                       return response
                     }
                   }
+                  const nkIdx = response.indexOf("AUTH_NK")
+                  if (nkIdx !== -1) {
+                    try {
+                      const data = JSON.parse(
+                        response.slice(nkIdx + "AUTH_NK".length)
+                      )
+                      return data.message || "Error de autenticación"
+                    } catch {
+                      return "Error de autenticación"
+                    }
+                  }
                   return response
                 })()}
               </div>
@@ -139,6 +177,7 @@ export function LoginForm({
                 type="button"
                 onClick={() => navigate("/register")}
                 className="text-primary hover:underline underline-offset-4"
+                disabled={isLoading}
               >
                 Regístrate aquí
               </button>

@@ -5,6 +5,7 @@ import {
   IconReport,
   type Icon,
 } from "@tabler/icons-react"
+import { useNavigate } from "react-router-dom"
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -28,6 +29,8 @@ export function NavMain({
     icon?: Icon
   }[]
 }) {
+  const navigate = useNavigate()
+
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
@@ -45,23 +48,17 @@ export function NavMain({
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-48 ml-2">
-                <DropdownMenuItem asChild>
-                  <a href="/crear-publicacion" className="flex items-center gap-2">
-                    <IconFileDescription className="size-4" />
-                    <span>Publicación</span>
-                  </a>
+                <DropdownMenuItem onClick={() => navigate("/crear-publicacion")}>
+                  <IconFileDescription className="size-4" />
+                  <span>Publicación</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <a href="/crear-evento" className="flex items-center gap-2">
-                    <IconCalendarEvent className="size-4" />
-                    <span>Evento</span>
-                  </a>
+                <DropdownMenuItem onClick={() => navigate("/crear-evento")}>
+                  <IconCalendarEvent className="size-4" />
+                  <span>Evento</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <a href="/crear-reporte" className="flex items-center gap-2">
-                    <IconReport className="size-4" />
-                    <span>Reporte</span>
-                  </a>
+                <DropdownMenuItem onClick={() => navigate("/crear-reporte")}>
+                  <IconReport className="size-4" />
+                  <span>Reporte</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -72,7 +69,7 @@ export function NavMain({
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton tooltip={item.title}>
+              <SidebarMenuButton tooltip={item.title} onClick={() => navigate(item.url)}>
                 {item.icon && <item.icon />}
                 <span>{item.title}</span>
               </SidebarMenuButton>

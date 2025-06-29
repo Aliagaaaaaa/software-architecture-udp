@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useNavigate } from "react-router-dom"
 import {
   IconBell,
   IconLayoutDashboard,
@@ -8,6 +9,10 @@ import {
   IconBook,
   IconClipboardList,
   IconChevronRight,
+  IconUsers,
+  IconShield,
+  IconInfoCircle,
+  IconFileText,
 } from "@tabler/icons-react"
 
 import { NavDocuments } from "@/components/nav-documents"
@@ -22,6 +27,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarGroupContent,
 } from "@/components/ui/sidebar"
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
@@ -29,15 +37,23 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
     name: string
     email: string
     avatar: string
+    rol?: string
   }
 }
 
 export function AppSidebar({ user, ...props }: AppSidebarProps) {
+  const navigate = useNavigate()
+
   const navMain = [
     {
       title: "Foros",
       url: "/forums",
       icon: IconLayoutDashboard,
+    },
+    {
+      title: "Mis Publicaciones",
+      url: "/perfil",
+      icon: IconFileText,
     },
     {
       title: "Estadísticas",
@@ -87,6 +103,21 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
     },
   ]
 
+  const navAdmin = [
+    {
+      title: "Gestión de Usuarios",
+      url: "/admin/users",
+      icon: IconUsers,
+    },
+    {
+      title: "Información del Sistema",
+      url: "/system-info",
+      icon: IconInfoCircle,
+    },
+  ]
+
+  const isModerator = user?.rol === "moderador"
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -95,11 +126,12 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
             <SidebarMenuButton
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
+              onClick={() => navigate("/")}
             >
-              <a href="/">
+              <div>
                 <IconChevronRight className="!size-5" />
                 <span className="text-base font-semibold">Foro UDP</span>
-              </a>
+              </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -107,6 +139,29 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
       <SidebarContent>
         <NavMain items={navMain} />
         <NavDocuments items={navDocuments} />
+        
+        {/* Sección de administración solo para moderadores */}
+        {isModerator && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="flex items-center gap-2">
+              <IconShield className="h-4 w-4" />
+              Administración
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {navAdmin.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton tooltip={item.title} onClick={() => navigate(item.url)}>
+                      {item.icon && <item.icon />}
+                      <span>{item.title}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+        
         <NavSecondary items={navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>

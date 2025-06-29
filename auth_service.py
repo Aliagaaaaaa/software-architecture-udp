@@ -19,7 +19,7 @@ class AuthService(SOAServiceBase):
         # Clave secreta para JWT (en producción debería estar en variables de entorno)
         self.jwt_secret = "your-secret-key-here"
         self.jwt_algorithm = "HS256"
-        self.jwt_expiration_hours = 24
+        self.jwt_expiration_hours = 168  # 7 días (24 * 7)
         
         # Cliente de base de datos HTTP
         self.db = DatabaseClient(proxy_url)
