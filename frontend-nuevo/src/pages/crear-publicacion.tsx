@@ -1,10 +1,16 @@
 import { useState, useCallback, useEffect, useRef } from "react"
+import { AppSidebar } from "@/components/app-sidebar"
+import { SiteHeader } from "@/components/site-header"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import {
+  SidebarInset,
+  SidebarProvider,
+} from "@/components/ui/sidebar"
 import { toast } from "sonner"
 import { useNavigate } from "react-router-dom"
 import { ArrowLeft } from "lucide-react"
@@ -24,6 +30,7 @@ export function CrearPublicacion() {
   const [content, setContent] = useState("")
   const [forums, setForums] = useState<Forum[]>([])
   const [loading, setLoading] = useState(false)
+  const [user, setUser] = useState<any>(null)
   const socketRef = useRef<WebSocket | null>(null)
 
   // Cargar lista de foros disponibles
@@ -39,6 +46,21 @@ export function CrearPublicacion() {
   useEffect(() => {
     const token = localStorage.getItem("token")
     if (!token) {
+      navigate("/login")
+      return
+    }
+
+    // Parse user info from token
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]))
+      setUser({
+        name: payload.name || payload.email,
+        email: payload.email,
+        avatar: payload.avatar || "",
+        rol: payload.rol
+      })
+    } catch (err) {
+      console.error("Error parsing token:", err)
       navigate("/login")
       return
     }
@@ -130,73 +152,79 @@ export function CrearPublicacion() {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex items-center gap-4 mb-6">
-        <Button 
-          variant="outline" 
-          size="icon"
-          onClick={() => navigate("/forums")}
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <h1 className="text-2xl font-bold">Crear Nueva Publicación</h1>
-      </div>
+    <SidebarProvider>
+      <AppSidebar variant="inset" user={user} />
+      <SidebarInset>
+        <SiteHeader />
+        <div className="container mx-auto p-6">
+          <div className="flex items-center gap-4 mb-6">
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={() => navigate("/forums")}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <h1 className="text-2xl font-bold">Crear Nueva Publicación</h1>
+          </div>
 
-      <Card className="max-w-2xl mx-auto">
-        <CardHeader>
-          <CardTitle>Nueva Publicación</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="forum">Foro *</Label>
-              <Select value={selectedForumId} onValueChange={setSelectedForumId} required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un foro" />
-                </SelectTrigger>
-                <SelectContent>
-                  {forums.map((forum) => (
-                    <SelectItem key={forum.id_foro} value={forum.id_foro.toString()}>
-                      <div>
-                        <div className="font-medium">{forum.titulo}</div>
-                        <div className="text-sm text-muted-foreground">{forum.descripcion}</div>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <Card className="max-w-2xl mx-auto">
+            <CardHeader>
+              <CardTitle>Nueva Publicación</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="forum">Foro *</Label>
+                  <Select value={selectedForumId} onValueChange={setSelectedForumId} required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona un foro" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {forums.map((forum) => (
+                        <SelectItem key={forum.id_foro} value={forum.id_foro.toString()}>
+                          <div>
+                            <div className="font-medium">{forum.titulo}</div>
+                            <div className="text-sm text-muted-foreground">{forum.descripcion}</div>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="content">Contenido *</Label>
-              <Textarea
-                id="content"
-                placeholder="Escribe el contenido de tu publicación..."
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                rows={8}
-                required
-              />
-              <div className="text-sm text-muted-foreground text-right">
-                {content.length}/5000 caracteres
-              </div>
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="content">Contenido *</Label>
+                  <Textarea
+                    id="content"
+                    placeholder="Escribe el contenido de tu publicación..."
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    rows={8}
+                    required
+                  />
+                  <div className="text-sm text-muted-foreground text-right">
+                    {content.length}/5000 caracteres
+                  </div>
+                </div>
 
-            <div className="flex gap-2">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => navigate("/forums")}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? "Creando..." : "Crear Publicación"}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+                <div className="flex gap-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => navigate("/forums")}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={loading}>
+                    {loading ? "Creando..." : "Crear Publicación"}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }

@@ -14,7 +14,7 @@ from soa_service_base import SOAServiceBase
 
 class ReportService(SOAServiceBase):
     def __init__(self, host: str = 'localhost', port: int = 8009):
-        super().__init__(host, port, service_name="reprt")
+        super().__init__(service_name="reprt", host=host, port=port)
         self.db_client = DatabaseClient()
         self.jwt_secret = "your-secret-key-here"  # En producción, usar variable de entorno
         

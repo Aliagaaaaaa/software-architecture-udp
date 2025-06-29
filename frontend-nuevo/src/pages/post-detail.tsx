@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
-import { ArrowLeft, Plus, MessageSquare, User, Calendar, MoreVertical, Edit, Trash2, Shield } from "lucide-react"
+import { ArrowLeft, Plus, MessageSquare, User, Calendar, MoreVertical, Edit, Trash2, Shield, Flag } from "lucide-react"
 import {
   SidebarInset,
   SidebarProvider,
@@ -350,6 +350,70 @@ export default function PostDetail() {
     }
   }
 
+  const handleReportPost = () => {
+    if (!post) return
+    
+    const reason = prompt("¿Por qué quieres reportar este post?\n\nDescribe brevemente la razón:")
+    if (!reason || !reason.trim()) return
+    
+    const token = localStorage.getItem("token")
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      const message = `reprtcreate_report ${token} ${post.id_post} post '${reason.trim()}'`
+      console.log("📤 Reportando post:", message)
+      socketRef.current.send(message)
+      
+      // Escuchar respuesta
+      const originalOnMessage = socketRef.current?.onmessage
+      if (socketRef.current) {
+        socketRef.current.onmessage = (event) => {
+          if (event.data.includes("reprtOK") && event.data.includes("creado exitosamente")) {
+            toast.success("Post reportado exitosamente")
+          } else if (event.data.includes("reprtNK")) {
+            toast.error("Error al reportar el post")
+          }
+          
+          // Restaurar el handler original
+          if (originalOnMessage && socketRef.current) {
+            socketRef.current.onmessage = originalOnMessage
+          }
+        }
+      }
+    } else {
+      toast.error("Error de conexión")
+    }
+  }
+
+  const handleReportComment = (comment: Comment) => {
+    const reason = prompt("¿Por qué quieres reportar este comentario?\n\nDescribe brevemente la razón:")
+    if (!reason || !reason.trim()) return
+    
+    const token = localStorage.getItem("token")
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      const message = `reprtcreate_report ${token} ${comment.id_comentario} comentario '${reason.trim()}'`
+      console.log("📤 Reportando comentario:", message)
+      socketRef.current.send(message)
+      
+      // Escuchar respuesta
+      const originalOnMessage = socketRef.current?.onmessage
+      if (socketRef.current) {
+        socketRef.current.onmessage = (event) => {
+          if (event.data.includes("reprtOK") && event.data.includes("creado exitosamente")) {
+            toast.success("Comentario reportado exitosamente")
+          } else if (event.data.includes("reprtNK")) {
+            toast.error("Error al reportar el comentario")
+          }
+          
+          // Restaurar el handler original
+          if (originalOnMessage && socketRef.current) {
+            socketRef.current.onmessage = originalOnMessage
+          }
+        }
+      }
+    } else {
+      toast.error("Error de conexión")
+    }
+  }
+
   const formatDate = (dateString: string) => {
     try {
       return new Date(dateString).toLocaleDateString('es-ES', {
@@ -417,38 +481,46 @@ export default function PostDetail() {
                             )}
                           </div>
                         </div>
-                        {canEditOrDeletePost() && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={openEditPostDialog}>
-                                <Edit className="h-4 w-4 mr-2" />
-                                Editar Post
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {canEditOrDeletePost() && (
+                              <>
+                                <DropdownMenuItem onClick={openEditPostDialog}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Editar Post
+                                </DropdownMenuItem>
+                                {user?.email === post.autor_email ? (
+                                  <DropdownMenuItem 
+                                    onClick={handleDeletePost}
+                                    className="text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Eliminar Post
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem 
+                                    onClick={handleAdminDeletePost}
+                                    className="text-destructive"
+                                  >
+                                    <Shield className="h-4 w-4 mr-2" />
+                                    Eliminar (Moderador)
+                                  </DropdownMenuItem>
+                                )}
+                              </>
+                            )}
+                            {user?.email !== post.autor_email && (
+                              <DropdownMenuItem onClick={handleReportPost} className="text-orange-600">
+                                <Flag className="h-4 w-4 mr-2" />
+                                Reportar Post
                               </DropdownMenuItem>
-                              {user?.email === post.autor_email ? (
-                                <DropdownMenuItem 
-                                  onClick={handleDeletePost}
-                                  className="text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Eliminar Post
-                                </DropdownMenuItem>
-                              ) : (
-                                <DropdownMenuItem 
-                                  onClick={handleAdminDeletePost}
-                                  className="text-destructive"
-                                >
-                                  <Shield className="h-4 w-4 mr-2" />
-                                  Eliminar (Moderador)
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </CardHeader>
                     <CardContent>
@@ -606,30 +678,41 @@ export default function PostDetail() {
                               </div>
                               
                               {/* Menú de acciones */}
-                              {canEditOrDelete(comment) && (
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                      <MoreVertical className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    {user.email === comment.autor_email && (
-                                      <DropdownMenuItem onClick={() => openEditDialog(comment)}>
-                                        <Edit className="mr-2 h-4 w-4" />
-                                        Editar
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  {canEditOrDelete(comment) && (
+                                    <>
+                                      {user.email === comment.autor_email && (
+                                        <DropdownMenuItem onClick={() => openEditDialog(comment)}>
+                                          <Edit className="mr-2 h-4 w-4" />
+                                          Editar
+                                        </DropdownMenuItem>
+                                      )}
+                                      <DropdownMenuItem 
+                                        onClick={() => handleDeleteComment(comment.id_comentario, canAdminDelete(comment))}
+                                        className="text-red-600"
+                                      >
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Eliminar
                                       </DropdownMenuItem>
-                                    )}
+                                    </>
+                                  )}
+                                  {user?.email !== comment.autor_email && (
                                     <DropdownMenuItem 
-                                      onClick={() => handleDeleteComment(comment.id_comentario, canAdminDelete(comment))}
-                                      className="text-red-600"
+                                      onClick={() => handleReportComment(comment)}
+                                      className="text-orange-600"
                                     >
-                                      <Trash2 className="mr-2 h-4 w-4" />
-                                      Eliminar
+                                      <Flag className="mr-2 h-4 w-4" />
+                                      Reportar Comentario
                                     </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              )}
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </CardHeader>
                           <CardContent className="pt-0">
