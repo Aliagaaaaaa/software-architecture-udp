@@ -210,6 +210,16 @@ class EventService(SOAServiceBase):
             result = self.db_client.execute_query(query, [nombre, descripcion, fecha, creador_id, now, now])
             
             if result.get('success'):
+                # Obtener el ID del evento recién creado
+                evento_id = result.get('lastrowid')
+                if not evento_id:
+                    # Fallback: buscar el evento por datos únicos
+                    query_id = "SELECT id_evento FROM EVENTO WHERE nombre = ? AND creador_id = ? AND created_at = ?"
+                    id_result = self.db_client.execute_query(query_id, [nombre, creador_id, now])
+                    if id_result.get('success') and id_result.get('results'):
+                        evento_data = id_result['results'][0]
+                        evento_id = evento_data.get('id_evento') if isinstance(evento_data, dict) else evento_data[0]
+                
                 # Obtener información del creador
                 user_info = self._get_user_by_id(creador_id)
                 creador_email = user_info['user']['email'] if user_info.get('success') else 'Desconocido'
@@ -219,6 +229,7 @@ class EventService(SOAServiceBase):
                     "success": True, 
                     "message": "Evento creado exitosamente",
                     "event": {
+                        "id_evento": evento_id,
                         "nombre": nombre,
                         "descripcion": descripcion,
                         "fecha": fecha,

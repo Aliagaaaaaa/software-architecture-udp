@@ -95,7 +95,15 @@ export function CrearReporte() {
           const jsonString = event.data.slice(reprtOkIndex + "reprtOK".length)
           const json = JSON.parse(jsonString)
           
-          if (json.success) {
+          if (json.success && json.report && json.report.id_reporte) {
+            // Crear notificación de reporte para moderadores
+            const token = localStorage.getItem("token")
+            const notificationMessage = `NOTIFcreate_report_notification ${token} ${json.report.id_reporte} '${razon}' '${tipoContenido}'`
+            console.log("📤 Enviando notificación de reporte:", notificationMessage)
+            if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+              socketRef.current.send(notificationMessage)
+            }
+            
             toast.success("Reporte creado exitosamente")
             setContenidoId("")
             setTipoContenido("")

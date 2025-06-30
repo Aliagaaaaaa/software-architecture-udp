@@ -224,6 +224,16 @@ class ReportService(SOAServiceBase):
             result = self.db_client.execute_query(query, [contenido_id, tipo_contenido, razon, now, reportado_por])
             
             if result.get('success'):
+                # Obtener el ID del reporte recién creado
+                reporte_id = result.get('lastrowid')
+                if not reporte_id:
+                    # Fallback: buscar el reporte por datos únicos
+                    query_id = "SELECT id_reporte FROM REPORTE WHERE contenido_id = ? AND tipo_contenido = ? AND reportado_por = ? AND fecha = ?"
+                    id_result = self.db_client.execute_query(query_id, [contenido_id, tipo_contenido, reportado_por, now])
+                    if id_result.get('success') and id_result.get('results'):
+                        reporte_data = id_result['results'][0]
+                        reporte_id = reporte_data.get('id_reporte') if isinstance(reporte_data, dict) else reporte_data[0]
+                
                 # Obtener información del usuario que reporta
                 user_info = self._get_user_by_id(reportado_por)
                 reportador_email = user_info['user']['email'] if user_info.get('success') else 'Desconocido'
@@ -233,6 +243,7 @@ class ReportService(SOAServiceBase):
                     "success": True, 
                     "message": "Reporte creado exitosamente",
                     "report": {
+                        "id_reporte": reporte_id,
                         "contenido_id": int(contenido_id),
                         "tipo_contenido": tipo_contenido,
                         "razon": razon,

@@ -147,6 +147,25 @@ export function CrearEvento() {
     if (socketRef.current) {
       socketRef.current.onmessage = (event) => {
         if (event.data.includes("EVNTSOK") && event.data.includes("creado exitosamente")) {
+          try {
+            // Extraer el ID del evento de la respuesta
+            const evntsOkIndex = event.data.indexOf("EVNTSOK")
+            const jsonString = event.data.slice(evntsOkIndex + "EVNTSOK".length)
+            const json = JSON.parse(jsonString)
+            
+            if (json.success && json.event && json.event.id_evento) {
+              // Crear notificación de evento para todos los usuarios
+              const token = localStorage.getItem("token")
+              const notificationMessage = `NOTIFcreate_event_notification ${token} ${json.event.id_evento} '${newEventName}' '${newEventDescription}'`
+              console.log("📤 Enviando notificación de evento:", notificationMessage)
+              if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+                socketRef.current.send(notificationMessage)
+              }
+            }
+          } catch (err) {
+            console.error("Error enviando notificación de evento:", err)
+          }
+          
           setIsCreateDialogOpen(false)
           setNewEventName("")
           setNewEventDescription("")

@@ -1209,6 +1209,154 @@ class NotificationService(SOAServiceBase):
             self.logger.error(f"Error en create_message_notification: {e}")
             return json.dumps({"success": False, "message": f"Error interno: {str(e)}"})
 
+    def service_create_event_notification(self, params_str: str) -> str:
+        """Crea notificaciones para todos los usuarios cuando se publica un nuevo evento"""
+        try:
+            params = self._parse_quoted_params(params_str)
+            if len(params) < 4:
+                return json.dumps({"success": False, "message": "Parámetros requeridos: token evento_id nombre_evento descripcion_evento"})
+            
+            token = params[0]
+            try:
+                evento_id = int(params[1])
+            except ValueError:
+                return json.dumps({"success": False, "message": "evento_id debe ser un número válido"})
+            
+            nombre_evento = params[2]
+            descripcion_evento = params[3]
+            
+            # Verificar token (el que crea el evento)
+            token_result = self._verify_token(token)
+            if not token_result.get('success'):
+                return json.dumps({"success": False, "message": token_result.get('message')})
+            
+            user_payload = token_result['payload']
+            creador_id = user_payload.get('id_usuario')
+            creador_email = user_payload.get('email')
+            
+            # Obtener todos los usuarios (excepto el creador del evento)
+            query = "SELECT id_usuario FROM USUARIO WHERE id_usuario != ?"
+            result = self.db_client.execute_query(query, [creador_id])
+            
+            if result.get('success'):
+                users = result.get('results', [])
+                notifications_created = 0
+                
+                from datetime import datetime
+                now = datetime.now().isoformat()
+                
+                for user_data in users:
+                    if isinstance(user_data, dict):
+                        usuario_id = user_data.get('id_usuario')
+                    else:
+                        usuario_id = user_data[0] if len(user_data) > 0 else None
+                    
+                    if not usuario_id:
+                        continue
+                    
+                    # Crear notificación
+                    insert_query = """
+                    INSERT INTO NOTIFICACION (usuario_id, titulo, mensaje, tipo, referencia_id, referencia_tipo, fecha, creador_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """
+                    
+                    titulo = "🎉 Nuevo evento publicado"
+                    mensaje = f"Evento '{nombre_evento}' creado por {creador_email}: {descripcion_evento[:100]}{'...' if len(descripcion_evento) > 100 else ''}"
+                    
+                    notif_result = self.db_client.execute_query(insert_query, [
+                        usuario_id, titulo, mensaje, 'evento', evento_id, 'evento', now, creador_id
+                    ])
+                    
+                    if notif_result.get('success'):
+                        notifications_created += 1
+                
+                self.logger.info(f"🎉 {notifications_created} notificaciones creadas para nuevo evento {evento_id}")
+                return json.dumps({
+                    "success": True,
+                    "message": f"Se crearon {notifications_created} notificaciones",
+                    "notifications_created": notifications_created
+                })
+            else:
+                return json.dumps({"success": False, "message": f"Error obteniendo usuarios: {result.get('error')}"})
+                
+        except Exception as e:
+            self.logger.error(f"Error en create_event_notification: {e}")
+            return json.dumps({"success": False, "message": f"Error interno: {str(e)}"})
+
+    def service_create_report_notification(self, params_str: str) -> str:
+        """Crea notificaciones para moderadores cuando se crea un nuevo reporte"""
+        try:
+            params = self._parse_quoted_params(params_str)
+            if len(params) < 4:
+                return json.dumps({"success": False, "message": "Parámetros requeridos: token reporte_id razon tipo_contenido"})
+            
+            token = params[0]
+            try:
+                reporte_id = int(params[1])
+            except ValueError:
+                return json.dumps({"success": False, "message": "reporte_id debe ser un número válido"})
+            
+            razon = params[2]
+            tipo_contenido = params[3]  # 'post', 'comentario', 'usuario', etc.
+            
+            # Verificar token (el que crea el reporte)
+            token_result = self._verify_token(token)
+            if not token_result.get('success'):
+                return json.dumps({"success": False, "message": token_result.get('message')})
+            
+            user_payload = token_result['payload']
+            creador_id = user_payload.get('id_usuario')
+            creador_email = user_payload.get('email')
+            
+            # Obtener todos los moderadores
+            query = "SELECT id_usuario FROM USUARIO WHERE rol = 'moderador'"
+            result = self.db_client.execute_query(query, [])
+            
+            if result.get('success'):
+                moderadores = result.get('results', [])
+                notifications_created = 0
+                
+                from datetime import datetime
+                now = datetime.now().isoformat()
+                
+                for mod_data in moderadores:
+                    if isinstance(mod_data, dict):
+                        usuario_id = mod_data.get('id_usuario')
+                    else:
+                        usuario_id = mod_data[0] if len(mod_data) > 0 else None
+                    
+                    if not usuario_id:
+                        continue
+                    
+                    # Crear notificación
+                    insert_query = """
+                    INSERT INTO NOTIFICACION (usuario_id, titulo, mensaje, tipo, referencia_id, referencia_tipo, fecha, creador_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """
+                    
+                    titulo = "⚠️ Nuevo reporte recibido"
+                    mensaje = f"Reporte de {tipo_contenido} por {creador_email}: {razon[:100]}{'...' if len(razon) > 100 else ''}"
+                    
+                    notif_result = self.db_client.execute_query(insert_query, [
+                        usuario_id, titulo, mensaje, 'reporte', reporte_id, 'reporte', now, creador_id
+                    ])
+                    
+                    if notif_result.get('success'):
+                        notifications_created += 1
+                
+                self.logger.info(f"⚠️ {notifications_created} notificaciones creadas para nuevo reporte {reporte_id}")
+                return json.dumps({
+                    "success": True,
+                    "message": f"Se crearon {notifications_created} notificaciones para moderadores",
+                    "notifications_created": notifications_created
+                })
+            else:
+                return json.dumps({"success": False, "message": f"Error obteniendo moderadores: {result.get('error')}"})
+                
+        except Exception as e:
+            self.logger.error(f"Error en create_report_notification: {e}")
+            return json.dumps({"success": False, "message": f"Error interno: {str(e)}"})
+
     def service_info(self, *args) -> str:
         """Método abstracto requerido por SOAServiceBase"""
         info_data = {
@@ -1230,13 +1378,15 @@ class NotificationService(SOAServiceBase):
                     "list_forum_subscriptions", "list_post_subscriptions"
                 ],
                 "moderador": ["all student permissions", "admin_list_all_notifications"],
-                "servicios": ["create_post_notification", "create_comment_notification", "create_message_notification"]
+                "servicios": ["create_post_notification", "create_comment_notification", "create_message_notification", "create_event_notification", "create_report_notification"]
             },
-            "notification_types": ["mensaje", "foro", "post", "comentario"],
-            "subscription_features": {
+            "notification_types": ["mensaje", "foro", "post", "comentario", "evento", "reporte"],
+            "notification_features": {
                 "forum_subscriptions": "Usuarios se suscriben a foros para recibir notificaciones de nuevos posts",
                 "post_subscriptions": "Usuarios se suscriben a posts para recibir notificaciones de nuevos comentarios",
-                "auto_notifications": "Notificaciones automáticas para mensajes directos"
+                "message_notifications": "Notificaciones para mensajes privados",
+                "event_notifications": "Notificaciones a todos los usuarios sobre nuevos eventos",
+                "report_notifications": "Notificaciones a moderadores sobre nuevos reportes"
             }
         }
         return json.dumps(info_data)
