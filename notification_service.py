@@ -931,8 +931,12 @@ class NotificationService(SOAServiceBase):
                 return json.dumps({"success": False, "message": "Parámetros requeridos: token foro_id post_id titulo_post"})
             
             token = params[0]
-            foro_id = params[1]
-            post_id = params[2]
+            try:
+                foro_id = int(params[1])
+                post_id = int(params[2])
+            except ValueError:
+                return json.dumps({"success": False, "message": "foro_id y post_id deben ser números válidos"})
+            
             titulo_post = params[3]
             
             # Verificar token (el que crea el post)
@@ -962,8 +966,13 @@ class NotificationService(SOAServiceBase):
                 now = datetime.now().isoformat()
                 
                 for subscriber_data in subscribers:
-                    fields = self._extract_db_fields(subscriber_data, ['usuario_id', 'email'])
-                    usuario_id = fields[0]
+                    if isinstance(subscriber_data, dict):
+                        usuario_id = subscriber_data.get('usuario_id')
+                    else:
+                        usuario_id = subscriber_data[0] if len(subscriber_data) > 0 else None
+                    
+                    if not usuario_id:
+                        continue
                     
                     # Crear notificación
                     insert_query = """
@@ -1002,8 +1011,12 @@ class NotificationService(SOAServiceBase):
                 return json.dumps({"success": False, "message": "Parámetros requeridos: token post_id comentario_id titulo_post"})
             
             token = params[0]
-            post_id = params[1]
-            comentario_id = params[2]
+            try:
+                post_id = int(params[1])
+                comentario_id = int(params[2])
+            except ValueError:
+                return json.dumps({"success": False, "message": "post_id y comentario_id deben ser números válidos"})
+            
             titulo_post = params[3]
             
             # Verificar token (el que crea el comentario)
@@ -1041,8 +1054,13 @@ class NotificationService(SOAServiceBase):
                 now = datetime.now().isoformat()
                 
                 for subscriber_data in subscribers:
-                    fields = self._extract_db_fields(subscriber_data, ['id_usuario', 'email'])
-                    usuario_id = fields[0]
+                    if isinstance(subscriber_data, dict):
+                        usuario_id = subscriber_data.get('id_usuario')
+                    else:
+                        usuario_id = subscriber_data[0] if len(subscriber_data) > 0 else None
+                    
+                    if not usuario_id:
+                        continue
                     
                     # Crear notificación
                     insert_query = """
@@ -1082,7 +1100,11 @@ class NotificationService(SOAServiceBase):
             
             token = params[0]
             destinatario_email = params[1]
-            mensaje_id = params[2]
+            try:
+                mensaje_id = int(params[2])
+            except ValueError:
+                return json.dumps({"success": False, "message": "mensaje_id debe ser un número válido"})
+            
             preview_contenido = params[3]
             
             # Verificar token (el que envía el mensaje)
