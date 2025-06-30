@@ -602,7 +602,10 @@ class NotificationService(SOAServiceBase):
                 return json.dumps({"success": False, "message": "Parámetros requeridos: token foro_id"})
             
             token = params[0]
-            foro_id = params[1]
+            try:
+                foro_id = int(params[1])
+            except ValueError:
+                return json.dumps({"success": False, "message": "foro_id debe ser un número válido"})
             
             # Verificar token
             token_result = self._verify_token(token)
@@ -631,7 +634,13 @@ class NotificationService(SOAServiceBase):
             result = self.db_client.execute_query(insert_query, [usuario_id, foro_id, now])
             
             if result.get('success'):
-                titulo_foro = forum_result['results'][0][0]
+                # Obtener título del foro
+                forum_data = forum_result['results'][0]
+                if isinstance(forum_data, dict):
+                    titulo_foro = forum_data.get('titulo', 'Foro')
+                else:
+                    titulo_foro = forum_data[0] if forum_data else 'Foro'
+                
                 self.logger.info(f"📧 Usuario {user_payload.get('email')} suscrito al foro {titulo_foro}")
                 return json.dumps({
                     "success": True,
@@ -652,7 +661,10 @@ class NotificationService(SOAServiceBase):
                 return json.dumps({"success": False, "message": "Parámetros requeridos: token foro_id"})
             
             token = params[0]
-            foro_id = params[1]
+            try:
+                foro_id = int(params[1])
+            except ValueError:
+                return json.dumps({"success": False, "message": "foro_id debe ser un número válido"})
             
             # Verificar token
             token_result = self._verify_token(token)
@@ -687,7 +699,10 @@ class NotificationService(SOAServiceBase):
                 return json.dumps({"success": False, "message": "Parámetros requeridos: token post_id"})
             
             token = params[0]
-            post_id = params[1]
+            try:
+                post_id = int(params[1])
+            except ValueError:
+                return json.dumps({"success": False, "message": "post_id debe ser un número válido"})
             
             # Verificar token
             token_result = self._verify_token(token)
@@ -698,7 +713,7 @@ class NotificationService(SOAServiceBase):
             usuario_id = user_payload.get('id_usuario')
             
             # Verificar que el post existe
-            check_post_query = "SELECT titulo FROM POST WHERE id_post = ?"
+            check_post_query = "SELECT contenido FROM POST WHERE id_post = ?"
             post_result = self.db_client.execute_query(check_post_query, [post_id])
             
             if not post_result.get('success') or not post_result.get('results'):
@@ -716,11 +731,20 @@ class NotificationService(SOAServiceBase):
             result = self.db_client.execute_query(insert_query, [usuario_id, post_id, now])
             
             if result.get('success'):
-                titulo_post = post_result['results'][0][0]
+                # Obtener contenido del post
+                post_data = post_result['results'][0]
+                if isinstance(post_data, dict):
+                    contenido_post = post_data.get('contenido', 'Post')
+                else:
+                    contenido_post = post_data[0] if post_data else 'Post'
+                
+                # Crear título corto del post
+                titulo_post = contenido_post[:50] + "..." if len(contenido_post) > 50 else contenido_post
+                
                 self.logger.info(f"📧 Usuario {user_payload.get('email')} suscrito al post {titulo_post}")
                 return json.dumps({
                     "success": True,
-                    "message": f"Te has suscrito exitosamente al post '{titulo_post}'"
+                    "message": f"Te has suscrito exitosamente al post"
                 })
             else:
                 return json.dumps({"success": False, "message": f"Error creando suscripción: {result.get('error')}"})
@@ -737,7 +761,10 @@ class NotificationService(SOAServiceBase):
                 return json.dumps({"success": False, "message": "Parámetros requeridos: token post_id"})
             
             token = params[0]
-            post_id = params[1]
+            try:
+                post_id = int(params[1])
+            except ValueError:
+                return json.dumps({"success": False, "message": "post_id debe ser un número válido"})
             
             # Verificar token
             token_result = self._verify_token(token)
@@ -796,17 +823,23 @@ class NotificationService(SOAServiceBase):
             if result.get('success'):
                 subscriptions = []
                 for sub_data in result.get('results', []):
-                    fields = self._extract_db_fields(sub_data, [
-                        'id_suscripcion', 'foro_id', 'fecha_suscripcion', 'titulo', 'categoria'
-                    ])
-                    
-                    subscription = {
-                        "id_suscripcion": fields[0],
-                        "foro_id": fields[1],
-                        "fecha_suscripcion": fields[2],
-                        "titulo_foro": fields[3] or 'Foro eliminado',
-                        "categoria": fields[4] or 'N/A'
-                    }
+                    if isinstance(sub_data, dict):
+                        subscription = {
+                            "id_suscripcion": sub_data.get('id_suscripcion'),
+                            "foro_id": sub_data.get('foro_id'),
+                            "fecha_suscripcion": sub_data.get('fecha_suscripcion'),
+                            "titulo_foro": sub_data.get('titulo') or 'Foro eliminado',
+                            "categoria": sub_data.get('categoria') or 'N/A'
+                        }
+                    else:
+                        # Caso de tupla/lista
+                        subscription = {
+                            "id_suscripcion": sub_data[0] if len(sub_data) > 0 else None,
+                            "foro_id": sub_data[1] if len(sub_data) > 1 else None,
+                            "fecha_suscripcion": sub_data[2] if len(sub_data) > 2 else None,
+                            "titulo_foro": sub_data[3] if len(sub_data) > 3 else 'Foro eliminado',
+                            "categoria": sub_data[4] if len(sub_data) > 4 else 'N/A'
+                        }
                     subscriptions.append(subscription)
                 
                 return json.dumps({
@@ -841,7 +874,7 @@ class NotificationService(SOAServiceBase):
             # Obtener suscripciones con información del post
             query = """
             SELECT sp.id_suscripcion, sp.post_id, sp.fecha_suscripcion, 
-                   p.titulo, p.foro_id
+                   p.contenido
             FROM SUSCRIPCION_POST sp
             LEFT JOIN POST p ON sp.post_id = p.id_post
             WHERE sp.usuario_id = ? AND sp.activa = TRUE
@@ -853,17 +886,27 @@ class NotificationService(SOAServiceBase):
             if result.get('success'):
                 subscriptions = []
                 for sub_data in result.get('results', []):
-                    fields = self._extract_db_fields(sub_data, [
-                        'id_suscripcion', 'post_id', 'fecha_suscripcion', 'titulo', 'foro_id'
-                    ])
-                    
-                    subscription = {
-                        "id_suscripcion": fields[0],
-                        "post_id": fields[1],
-                        "fecha_suscripcion": fields[2],
-                        "titulo_post": fields[3] or 'Post eliminado',
-                        "foro_id": fields[4]
-                    }
+                    if isinstance(sub_data, dict):
+                        contenido = sub_data.get('contenido') or 'Post eliminado'
+                        titulo_post = contenido[:50] + "..." if len(contenido) > 50 else contenido
+                        
+                        subscription = {
+                            "id_suscripcion": sub_data.get('id_suscripcion'),
+                            "post_id": sub_data.get('post_id'),
+                            "fecha_suscripcion": sub_data.get('fecha_suscripcion'),
+                            "titulo_post": titulo_post
+                        }
+                    else:
+                        # Caso de tupla/lista
+                        contenido = sub_data[3] if len(sub_data) > 3 and sub_data[3] else 'Post eliminado'
+                        titulo_post = contenido[:50] + "..." if len(contenido) > 50 else contenido
+                        
+                        subscription = {
+                            "id_suscripcion": sub_data[0] if len(sub_data) > 0 else None,
+                            "post_id": sub_data[1] if len(sub_data) > 1 else None,
+                            "fecha_suscripcion": sub_data[2] if len(sub_data) > 2 else None,
+                            "titulo_post": titulo_post
+                        }
                     subscriptions.append(subscription)
                 
                 return json.dumps({
