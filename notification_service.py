@@ -34,31 +34,8 @@ class NotificationService(SOAServiceBase):
         # Inicializar base de datos
         self._init_database()
         
-        # Registrar métodos del servicio
-        self.register_method("list_notifications", self.service_list_notifications)
-        self.register_method("get_unread_count", self.service_get_unread_count)
-        self.register_method("mark_as_read", self.service_mark_as_read)
-        self.register_method("mark_all_as_read", self.service_mark_all_as_read)
-        self.register_method("get_notification", self.service_get_notification)
-        self.register_method("delete_notification", self.service_delete_notification)
-        self.register_method("clear_all_notifications", self.service_clear_all_notifications)
-        
-        # Métodos de suscripciones
-        self.register_method("subscribe_forum", self.service_subscribe_forum)
-        self.register_method("unsubscribe_forum", self.service_unsubscribe_forum)
-        self.register_method("subscribe_post", self.service_subscribe_post)
-        self.register_method("unsubscribe_post", self.service_unsubscribe_post)
-        self.register_method("list_forum_subscriptions", self.service_list_forum_subscriptions)
-        self.register_method("list_post_subscriptions", self.service_list_post_subscriptions)
-        
-        # Métodos para crear notificaciones
-        self.register_method("create_post_notification", self.service_create_post_notification)
-        self.register_method("create_comment_notification", self.service_create_comment_notification)
-        self.register_method("create_message_notification", self.service_create_message_notification)
-        
-        # Métodos admin
-        self.register_method("admin_list_all_notifications", self.service_admin_list_all_notifications)
-        self.register_method("info", self.service_info)
+        # Los métodos se registran automáticamente por la clase base
+        # Todos los métodos que empiecen con 'service_' se registran automáticamente
         
         self.logger.info("🔔 Servicio de Notificaciones inicializado")
 
@@ -217,15 +194,11 @@ class NotificationService(SOAServiceBase):
             return params_str.split()
 
     def _extract_db_fields(self, row_data, field_names):
-        """Helper para extraer campos de una fila de base de datos, manejando tanto dict como tuple"""
+        """Extrae campos de fila de base de datos"""
         if isinstance(row_data, dict):
-            return [row_data.get(field) for field in field_names]
+            return {field: row_data.get(field) for field in field_names}
         else:
-            return list(row_data[:len(field_names)])
-
-    def register_method(self, name: str, method):
-        """Método helper para registrar métodos manualmente si es necesario"""
-        self.methods[name] = method
+            return dict(zip(field_names, row_data))
 
     def service_list_notifications(self, params_str: str) -> str:
         """Lista las notificaciones del usuario autenticado"""
