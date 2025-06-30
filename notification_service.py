@@ -208,7 +208,10 @@ class NotificationService(SOAServiceBase):
                 return json.dumps({"success": False, "message": "Parámetros requeridos: token [limit]"})
             
             token = params[0]
-            limit = int(params[1]) if len(params) > 1 else 50  # Límite por defecto
+            try:
+                limit = int(params[1]) if len(params) > 1 else 50  # Límite por defecto
+            except ValueError:
+                limit = 50
             
             # Verificar token
             token_result = self._verify_token(token)
@@ -232,23 +235,35 @@ class NotificationService(SOAServiceBase):
             if result.get('success'):
                 notifications = []
                 for notification_data in result.get('results', []):
-                    # Extraer campos usando el helper
-                    fields = self._extract_db_fields(notification_data, [
-                        'id_notificacion', 'usuario_id', 'titulo', 'mensaje', 'tipo', 'referencia_id', 'referencia_tipo', 'leido', 'fecha', 'creador_id'
-                    ])
+                    # Manejar tanto diccionarios como tuplas
+                    if isinstance(notification_data, dict):
+                        notification = {
+                            "id_notificacion": notification_data.get('id_notificacion'),
+                            "usuario_id": notification_data.get('usuario_id'),
+                            "titulo": notification_data.get('titulo'),
+                            "mensaje": notification_data.get('mensaje'),
+                            "tipo": notification_data.get('tipo'),
+                            "referencia_id": notification_data.get('referencia_id'),
+                            "referencia_tipo": notification_data.get('referencia_tipo'),
+                            "leido": bool(notification_data.get('leido')),
+                            "fecha": notification_data.get('fecha'),
+                            "creador_id": notification_data.get('creador_id')
+                        }
+                    else:
+                        # Manejo de tuplas
+                        notification = {
+                            "id_notificacion": notification_data[0] if len(notification_data) > 0 else None,
+                            "usuario_id": notification_data[1] if len(notification_data) > 1 else None,
+                            "titulo": notification_data[2] if len(notification_data) > 2 else "",
+                            "mensaje": notification_data[3] if len(notification_data) > 3 else "",
+                            "tipo": notification_data[4] if len(notification_data) > 4 else "",
+                            "referencia_id": notification_data[5] if len(notification_data) > 5 else None,
+                            "referencia_tipo": notification_data[6] if len(notification_data) > 6 else "",
+                            "leido": bool(notification_data[7]) if len(notification_data) > 7 else False,
+                            "fecha": notification_data[8] if len(notification_data) > 8 else "",
+                            "creador_id": notification_data[9] if len(notification_data) > 9 else None
+                        }
                     
-                    notification = {
-                        "id_notificacion": fields[0],
-                        "usuario_id": fields[1],
-                        "titulo": fields[2],
-                        "mensaje": fields[3],
-                        "tipo": fields[4],
-                        "referencia_id": fields[5],
-                        "referencia_tipo": fields[6],
-                        "leido": bool(fields[7]),
-                        "fecha": fields[8],
-                        "creador_id": fields[9]
-                    }
                     notifications.append(notification)
                 
                 return json.dumps({
@@ -286,7 +301,12 @@ class NotificationService(SOAServiceBase):
             
             if result.get('success') and result.get('results'):
                 count_data = result['results'][0]
-                count = self._extract_db_fields(count_data, ['count'])[0]
+                
+                # Manejar tanto diccionarios como tuplas
+                if isinstance(count_data, dict):
+                    count = count_data.get('count', 0)
+                else:
+                    count = count_data[0] if len(count_data) > 0 else 0
                 
                 return json.dumps({
                     "success": True,
@@ -325,7 +345,11 @@ class NotificationService(SOAServiceBase):
             if not check_result.get('success') or not check_result.get('results'):
                 return json.dumps({"success": False, "message": "Notificación no encontrada"})
             
-            notification_user_id = self._extract_db_fields(check_result['results'][0], ['usuario_id'])[0]
+            user_data = check_result['results'][0]
+            if isinstance(user_data, dict):
+                notification_user_id = user_data.get('usuario_id')
+            else:
+                notification_user_id = user_data[0] if len(user_data) > 0 else None
             
             if notification_user_id != usuario_id:
                 return json.dumps({"success": False, "message": "No tienes permisos para modificar esta notificación"})
@@ -411,23 +435,34 @@ class NotificationService(SOAServiceBase):
             if result.get('success') and result.get('results'):
                 notification_data = result['results'][0]
                 
-                                # Extraer campos usando el helper  
-                fields = self._extract_db_fields(notification_data, [
-                    'id_notificacion', 'usuario_id', 'titulo', 'mensaje', 'tipo', 'referencia_id', 'referencia_tipo', 'leido', 'fecha', 'creador_id'
-                ])
-                
-                notification = {
-                    "id_notificacion": fields[0],
-                    "usuario_id": fields[1],
-                    "titulo": fields[2],
-                    "mensaje": fields[3],
-                    "tipo": fields[4],
-                    "referencia_id": fields[5],
-                    "referencia_tipo": fields[6],
-                    "leido": bool(fields[7]),
-                    "fecha": fields[8],
-                    "creador_id": fields[9]
-                }
+                # Manejar tanto diccionarios como tuplas
+                if isinstance(notification_data, dict):
+                    notification = {
+                        "id_notificacion": notification_data.get('id_notificacion'),
+                        "usuario_id": notification_data.get('usuario_id'),
+                        "titulo": notification_data.get('titulo'),
+                        "mensaje": notification_data.get('mensaje'),
+                        "tipo": notification_data.get('tipo'),
+                        "referencia_id": notification_data.get('referencia_id'),
+                        "referencia_tipo": notification_data.get('referencia_tipo'),
+                        "leido": bool(notification_data.get('leido')),
+                        "fecha": notification_data.get('fecha'),
+                        "creador_id": notification_data.get('creador_id')
+                    }
+                else:
+                    # Manejo de tuplas
+                    notification = {
+                        "id_notificacion": notification_data[0] if len(notification_data) > 0 else None,
+                        "usuario_id": notification_data[1] if len(notification_data) > 1 else None,
+                        "titulo": notification_data[2] if len(notification_data) > 2 else "",
+                        "mensaje": notification_data[3] if len(notification_data) > 3 else "",
+                        "tipo": notification_data[4] if len(notification_data) > 4 else "",
+                        "referencia_id": notification_data[5] if len(notification_data) > 5 else None,
+                        "referencia_tipo": notification_data[6] if len(notification_data) > 6 else "",
+                        "leido": bool(notification_data[7]) if len(notification_data) > 7 else False,
+                        "fecha": notification_data[8] if len(notification_data) > 8 else "",
+                        "creador_id": notification_data[9] if len(notification_data) > 9 else None
+                    }
                 
                 return json.dumps({
                     "success": True,
@@ -466,7 +501,11 @@ class NotificationService(SOAServiceBase):
             if not check_result.get('success') or not check_result.get('results'):
                 return json.dumps({"success": False, "message": "Notificación no encontrada"})
             
-            notification_user_id = self._extract_db_fields(check_result['results'][0], ['usuario_id'])[0]
+            user_data = check_result['results'][0]
+            if isinstance(user_data, dict):
+                notification_user_id = user_data.get('usuario_id')
+            else:
+                notification_user_id = user_data[0] if len(user_data) > 0 else None
             
             if notification_user_id != usuario_id:
                 return json.dumps({"success": False, "message": "No tienes permisos para eliminar esta notificación"})
@@ -530,7 +569,10 @@ class NotificationService(SOAServiceBase):
                 return json.dumps({"success": False, "message": "Parámetros requeridos: token [limit]"})
             
             token = params[0]
-            limit = int(params[1]) if len(params) > 1 else 100  # Límite por defecto
+            try:
+                limit = int(params[1]) if len(params) > 1 else 100  # Límite por defecto
+            except ValueError:
+                limit = 100
             
             # Verificar token
             token_result = self._verify_token(token)
@@ -559,25 +601,37 @@ class NotificationService(SOAServiceBase):
             if result.get('success'):
                 notifications = []
                 for notification_data in result.get('results', []):
-                    # Extraer campos usando el helper
-                    fields = self._extract_db_fields(notification_data, [
-                        'id_notificacion', 'usuario_id', 'titulo', 'mensaje', 'tipo',
-                        'referencia_id', 'referencia_tipo', 'leido', 'fecha', 'creador_id', 'usuario_email'
-                    ])
+                    # Manejar tanto diccionarios como tuplas
+                    if isinstance(notification_data, dict):
+                        notification = {
+                            "id_notificacion": notification_data.get('id_notificacion'),
+                            "usuario_id": notification_data.get('usuario_id'),
+                            "titulo": notification_data.get('titulo'),
+                            "mensaje": notification_data.get('mensaje'),
+                            "tipo": notification_data.get('tipo'),
+                            "referencia_id": notification_data.get('referencia_id'),
+                            "referencia_tipo": notification_data.get('referencia_tipo'),
+                            "leido": bool(notification_data.get('leido')),
+                            "fecha": notification_data.get('fecha'),
+                            "creador_id": notification_data.get('creador_id'),
+                            "usuario_email": notification_data.get('usuario_email') or 'Desconocido'
+                        }
+                    else:
+                        # Manejo de tuplas
+                        notification = {
+                            "id_notificacion": notification_data[0] if len(notification_data) > 0 else None,
+                            "usuario_id": notification_data[1] if len(notification_data) > 1 else None,
+                            "titulo": notification_data[2] if len(notification_data) > 2 else "",
+                            "mensaje": notification_data[3] if len(notification_data) > 3 else "",
+                            "tipo": notification_data[4] if len(notification_data) > 4 else "",
+                            "referencia_id": notification_data[5] if len(notification_data) > 5 else None,
+                            "referencia_tipo": notification_data[6] if len(notification_data) > 6 else "",
+                            "leido": bool(notification_data[7]) if len(notification_data) > 7 else False,
+                            "fecha": notification_data[8] if len(notification_data) > 8 else "",
+                            "creador_id": notification_data[9] if len(notification_data) > 9 else None,
+                            "usuario_email": notification_data[10] if len(notification_data) > 10 else 'Desconocido'
+                        }
                     
-                    notification = {
-                        "id_notificacion": fields[0],
-                        "usuario_id": fields[1],
-                        "titulo": fields[2],
-                        "mensaje": fields[3],
-                        "tipo": fields[4],
-                        "referencia_id": fields[5],
-                        "referencia_tipo": fields[6],
-                        "leido": bool(fields[7]),
-                        "fecha": fields[8],
-                        "creador_id": fields[9],
-                        "usuario_email": fields[10] or 'Desconocido'
-                    }
                     notifications.append(notification)
                 
                 return json.dumps({
