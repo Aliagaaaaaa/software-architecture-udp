@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -40,7 +41,9 @@ export function LoginForm({
     const socket = new WebSocket("ws://4.228.228.99:3001")
     socketRef.current = socket
 
-    socket.onopen = () => console.log("🔌 WebSocket conectado con gateway")
+    socket.onopen = () => {
+      console.log("🔌 WebSocket conectado con gateway")
+    }
 
     socket.onmessage = (event) => {
       console.log("📨 Respuesta del backend:", event.data)
@@ -53,32 +56,56 @@ export function LoginForm({
           const jsonStr = event.data.slice(prefixIndex + "AUTH_OK".length)
           const json = JSON.parse(jsonStr)
           if (json.token) {
+            toast.success(`¡Bienvenido! ${json.user?.email || email}`)
             updateToken(json.token)
             navigate("/forums")
           }
         } catch (err) {
           console.error("❌ Error procesando AUTH_OK:", err)
+          toast.error("Error procesando respuesta del servidor")
         }
       } else if (event.data.includes("AUTH_NK")) {
+        try {
+          const nkIdx = event.data.indexOf("AUTH_NK")
+          const jsonStr = event.data.slice(nkIdx + "AUTH_NK".length)
+          const json = JSON.parse(jsonStr)
+          toast.error(json.message || "Credenciales inválidas")
+        } catch {
+          toast.error("Credenciales inválidas")
+        }
         setIsLoading(false)
       }
     }
 
-    socket.onerror = (err) => console.error("❌ WebSocket error:", err)
-    socket.onclose = () => console.log("🔒 WebSocket cerrado")
+    socket.onerror = (err) => {
+      console.error("❌ WebSocket error:", err)
+      toast.error("Error de conexión")
+      setIsLoading(false)
+    }
+    socket.onclose = () => {
+      console.log("🔒 WebSocket cerrado")
+    }
 
     return () => socket.close()
-  }, [navigate, updateToken, authLoading])
+  }, [navigate, updateToken, authLoading, email])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (!email || !password) {
+      toast.error("Por favor completa todos los campos")
+      return
+    }
+    
     setIsLoading(true)
+    toast.info("Iniciando sesión...")
     const fullMessage = `AUTH_login ${email} ${password}`
 
     const socket = socketRef.current
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(fullMessage)
     } else {
+      toast.error("Conexión no disponible. Intentando reconectar...")
       console.warn("⏳ WebSocket aún no está listo. Esperando reconexión...")
       const waitInterval = setInterval(() => {
         if (socket?.readyState === WebSocket.OPEN) {
@@ -86,6 +113,15 @@ export function LoginForm({
           socket.send(fullMessage)
         }
       }, 100)
+      
+      // Timeout after 5 seconds
+      setTimeout(() => {
+        clearInterval(waitInterval)
+        if (isLoading) {
+          setIsLoading(false)
+          toast.error("Error de conexión. Por favor intenta nuevamente.")
+        }
+      }, 5000)
     }
   }
 

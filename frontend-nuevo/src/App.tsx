@@ -16,7 +16,7 @@ import { Profile } from "@/pages/profile"
 import AdminUsers from "@/pages/admin-users"
 import SystemInfo from "@/pages/system-info"
 import { AuthProvider } from "@/contexts/AuthContext"
-import { AuthDebug } from "@/components/auth-debug"
+import { Toaster } from "@/components/ui/sonner"
 
 function App() {
   return (
@@ -42,7 +42,7 @@ function App() {
           <Route path="/system-info" element={<SystemInfo />} />
       </Routes>
     </Router>
-      <AuthDebug />
+    <Toaster />
     </AuthProvider>
   )
 }

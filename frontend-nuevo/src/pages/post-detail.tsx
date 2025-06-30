@@ -116,6 +116,7 @@ export default function PostDetail() {
           }
         } catch (err) {
           console.error("Error al parsear post:", err)
+          toast.error("Error cargando el post")
         }
       }
 
@@ -162,26 +163,45 @@ export default function PostDetail() {
           }
         } catch (err) {
           console.error("Error al parsear comentarios:", err)
+          toast.error("Error cargando comentarios")
         }
       }
     }
 
-    socket.onerror = (err) => console.error("❌ WebSocket error:", err)
-    socket.onclose = () => console.log("🔒 WebSocket cerrado")
+    socket.onerror = (err) => {
+      console.error("❌ WebSocket error:", err)
+      toast.error("Error de conexión")
+    }
+    socket.onclose = () => {
+      console.log("🔒 WebSocket cerrado")
+    }
 
     return () => socket.close()
   }, [navigate, postId])
 
   const handleCreateComment = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newCommentContent.trim()) return
+    if (!newCommentContent.trim()) {
+      toast.error("El comentario no puede estar vacío")
+      return
+    }
+
+    if (newCommentContent.length > 5000) {
+      toast.error("El comentario no puede exceder 5000 caracteres")
+      return
+    }
 
     setLoading(true)
+    toast.info("Enviando comentario...")
     const token = localStorage.getItem("token")
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       const message = `COMMScreate_comment ${token} ${postId} '${newCommentContent}'`
       console.log("📤 Enviando mensaje:", message)
       socketRef.current.send(message)
+    } else {
+      toast.error("Error de conexión")
+      setLoading(false)
+      return
     }
 
     // Escuchar respuesta de creación
@@ -192,9 +212,11 @@ export default function PostDetail() {
           setIsCreateDialogOpen(false)
           setNewCommentContent("")
           setLoading(false)
+          toast.success("Comentario publicado exitosamente")
           loadComments() // Recargar la lista
         } else if (event.data.includes("COMMSNK")) {
           setLoading(false)
+          toast.error("Error al publicar el comentario")
           console.error("Error creando comentario")
         }
         
@@ -208,14 +230,27 @@ export default function PostDetail() {
 
   const handleEditComment = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!editingComment || !editCommentContent.trim()) return
+    if (!editingComment || !editCommentContent.trim()) {
+      toast.error("El comentario no puede estar vacío")
+      return
+    }
+
+    if (editCommentContent.length > 5000) {
+      toast.error("El comentario no puede exceder 5000 caracteres")
+      return
+    }
 
     setLoading(true)
+    toast.info("Guardando cambios...")
     const token = localStorage.getItem("token")
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       const message = `COMMSupdate_comment ${token} ${editingComment.id_comentario} '${editCommentContent}'`
       console.log("📤 Enviando mensaje:", message)
       socketRef.current.send(message)
+    } else {
+      toast.error("Error de conexión")
+      setLoading(false)
+      return
     }
 
     // Escuchar respuesta de actualización
@@ -227,9 +262,11 @@ export default function PostDetail() {
           setEditingComment(null)
           setEditCommentContent("")
           setLoading(false)
+          toast.success("Comentario actualizado exitosamente")
           loadComments() // Recargar la lista
         } else if (event.data.includes("COMMSNK")) {
           setLoading(false)
+          toast.error("Error al actualizar el comentario")
           console.error("Error actualizando comentario")
         }
         
@@ -244,6 +281,7 @@ export default function PostDetail() {
   const handleDeleteComment = (commentId: number, isAdmin = false) => {
     if (!confirm("¿Estás seguro de que quieres eliminar este comentario?")) return
 
+    toast.info("Eliminando comentario...")
     const token = localStorage.getItem("token")
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       const message = isAdmin 
@@ -251,6 +289,9 @@ export default function PostDetail() {
         : `COMMSdelete_comment ${token} ${commentId}`
       console.log("📤 Enviando mensaje:", message)
       socketRef.current.send(message)
+    } else {
+      toast.error("Error de conexión")
+      return
     }
 
     // Escuchar respuesta de eliminación
@@ -258,8 +299,10 @@ export default function PostDetail() {
     if (socketRef.current) {
       socketRef.current.onmessage = (event) => {
         if (event.data.includes("COMMSOK") && event.data.includes("eliminado exitosamente")) {
+          toast.success("Comentario eliminado exitosamente")
           loadComments() // Recargar la lista
         } else if (event.data.includes("COMMSNK")) {
+          toast.error("Error al eliminar el comentario")
           console.error("Error eliminando comentario")
         }
         
@@ -366,8 +409,21 @@ export default function PostDetail() {
       const originalOnMessage = socketRef.current?.onmessage
       if (socketRef.current) {
         socketRef.current.onmessage = (event) => {
-          if (event.data.includes("reprtOK") && event.data.includes("creado exitosamente")) {
-            toast.success("Post reportado exitosamente")
+          if (event.data.includes("reprtOK")) {
+            try {
+              const reprtOkIndex = event.data.indexOf("reprtOK")
+              const jsonString = event.data.slice(reprtOkIndex + "reprtOK".length)
+              const json = JSON.parse(jsonString)
+              
+              if (json.success) {
+                toast.success("Post reportado exitosamente")
+              } else {
+                toast.error(json.message || "Error al reportar el post")
+              }
+            } catch (err) {
+              console.error("Error parsing report response:", err)
+              toast.error("Error al procesar la respuesta")
+            }
           } else if (event.data.includes("reprtNK")) {
             toast.error("Error al reportar el post")
           }
@@ -397,8 +453,21 @@ export default function PostDetail() {
       const originalOnMessage = socketRef.current?.onmessage
       if (socketRef.current) {
         socketRef.current.onmessage = (event) => {
-          if (event.data.includes("reprtOK") && event.data.includes("creado exitosamente")) {
-            toast.success("Comentario reportado exitosamente")
+          if (event.data.includes("reprtOK")) {
+            try {
+              const reprtOkIndex = event.data.indexOf("reprtOK")
+              const jsonString = event.data.slice(reprtOkIndex + "reprtOK".length)
+              const json = JSON.parse(jsonString)
+              
+              if (json.success) {
+                toast.success("Comentario reportado exitosamente")
+              } else {
+                toast.error(json.message || "Error al reportar el comentario")
+              }
+            } catch (err) {
+              console.error("Error parsing report response:", err)
+              toast.error("Error al procesar la respuesta")
+            }
           } else if (event.data.includes("reprtNK")) {
             toast.error("Error al reportar el comentario")
           }
@@ -564,6 +633,9 @@ export default function PostDetail() {
                                 rows={4}
                                 required
                               />
+                              <div className="text-sm text-muted-foreground text-right mt-1">
+                                {newCommentContent.length}/5000 caracteres
+                              </div>
                             </div>
                             <div className="flex justify-end gap-2">
                               <Button
@@ -602,6 +674,9 @@ export default function PostDetail() {
                               rows={4}
                               required
                             />
+                            <div className="text-sm text-muted-foreground text-right mt-1">
+                              {editCommentContent.length}/5000 caracteres
+                            </div>
                           </div>
                           <div className="flex justify-end gap-2">
                             <Button

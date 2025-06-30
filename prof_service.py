@@ -350,12 +350,12 @@ class ProfileService(SOAServiceBase):
                 "message": f"Error executing method '{method_name}': {str(e)}"
             }
     
-    def service_info(self) -> Dict[str, Any]:
-        return {
+    def service_info(self) -> str:
+        info_data = {
             "service_name": self.service_name,
             "description": self.description,
             "version": "3.0.0",
-            "methods": self.get_available_methods(),
+            "methods": list(self.get_available_methods().keys()),
             "status": "running" if self.running else "stopped",
             "total_profiles": self._get_profile_count(),
             "database": {
@@ -372,6 +372,7 @@ class ProfileService(SOAServiceBase):
                 }
             }
         }
+        return json.dumps(info_data)
 
     def service_create_profile(self, token: str, avatar: str = "", biografia: str = "") -> str:
         """

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
+import { toast } from "sonner"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { Button } from "@/components/ui/button"
@@ -97,6 +98,7 @@ export default function Forums() {
           }
         } catch (err) {
           console.error("Error al parsear foros:", err)
+          toast.error("Error cargando foros")
         }
       }
       
@@ -112,6 +114,7 @@ export default function Forums() {
           }
         } catch (err) {
           console.error("Error al parsear mis foros:", err)
+          toast.error("Error cargando tus foros")
         }
       }
     }
@@ -145,9 +148,11 @@ export default function Forums() {
           setLoading(false)
           loadAllForums()
           loadMyForums()
+          toast.success("Foro creado exitosamente")
         } else if (event.data.includes("FORUMNK")) {
           setLoading(false)
           console.error("Error creando foro")
+          toast.error("Error al crear el foro")
         }
         
         // Restaurar el handler original
@@ -182,9 +187,11 @@ export default function Forums() {
           setLoading(false)
           loadAllForums()
           loadMyForums()
+          toast.success("Foro actualizado exitosamente")
         } else if (event.data.includes("FORUMNK")) {
           setLoading(false)
           console.error("Error actualizando foro")
+          toast.error("Error al actualizar el foro")
         }
         
         // Restaurar el handler original
@@ -212,8 +219,10 @@ export default function Forums() {
         if (event.data.includes("FORUMOK") && event.data.includes("eliminado exitosamente")) {
           loadAllForums()
           loadMyForums()
+          toast.success("Foro eliminado exitosamente")
         } else if (event.data.includes("FORUMNK")) {
           console.error("Error eliminando foro")
+          toast.error("Error al eliminar el foro")
         }
         
         // Restaurar el handler original

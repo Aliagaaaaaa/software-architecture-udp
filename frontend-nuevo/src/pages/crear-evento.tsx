@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Calendar, User, Clock, MoreVertical, Edit, Trash2, CalendarDays, Users } from "lucide-react"
+import { toast } from "sonner"
 import {
   SidebarInset,
   SidebarProvider,
@@ -151,10 +152,12 @@ export function CrearEvento() {
           setNewEventDescription("")
           setNewEventDate("")
           setLoading(false)
+          toast.success("Evento creado exitosamente")
           loadAllEvents()
           loadMyEvents()
         } else if (event.data.includes("EVNTSNK")) {
           setLoading(false)
+          toast.error("Error creando evento")
           console.error("Error creando evento")
         }
         
@@ -189,10 +192,12 @@ export function CrearEvento() {
           setEditEventDescription("")
           setEditEventDate("")
           setLoading(false)
+          toast.success("Evento actualizado exitosamente")
           loadAllEvents()
           loadMyEvents()
         } else if (event.data.includes("EVNTSNK")) {
           setLoading(false)
+          toast.error("Error actualizando evento")
           console.error("Error actualizando evento")
         }
         

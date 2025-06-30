@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { Plus, MessageSquare, Send, Inbox, User, Calendar, MoreVertical, Edit, Trash2, MessageCircle, ArrowRight, Users2, Eye } from "lucide-react"
+import { toast } from "sonner"
 import {
   SidebarInset,
   SidebarProvider,
@@ -291,10 +292,12 @@ export default function Messages() {
           setNewMessageEmail("")
           setNewMessageContent("")
           setLoading(false)
+          toast.success("Mensaje enviado exitosamente")
           loadSentMessages() // Recargar la lista
           loadReceivedMessages() // También recargar recibidos para actualizar conversaciones
         } else if (event.data.includes("MSGESNK")) {
           setLoading(false)
+          toast.error("Error enviando mensaje")
           console.error("Error enviando mensaje")
         }
         
@@ -325,6 +328,7 @@ export default function Messages() {
     if (socketRef.current) {
       socketRef.current.onmessage = (event) => {
         if (event.data.includes("MSGESOK") && event.data.includes("eliminado exitosamente")) {
+          toast.success("Mensaje eliminado exitosamente")
           loadSentMessages()
           loadReceivedMessages()
           // Si estamos viendo una conversación, recargarla
@@ -332,6 +336,7 @@ export default function Messages() {
             loadConversation(selectedConversation)
           }
         } else if (event.data.includes("MSGESNK")) {
+          toast.error("Error eliminando mensaje")
           console.error("Error eliminando mensaje")
         }
         

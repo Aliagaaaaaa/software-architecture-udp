@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Info, Server, Database, RefreshCw, CheckCircle, XCircle } from "lucide-react"
+import { toast } from "sonner"
 import {
   SidebarInset,
   SidebarProvider,
@@ -31,7 +32,7 @@ export default function SystemInfo() {
   const navigate = useNavigate()
 
   const serviceNames = [
-    { name: "AUTH", label: "Autenticación" },
+    { name: "AUTH_", label: "Autenticación" },
     { name: "FORUM", label: "Foros" },
     { name: "POSTS", label: "Posts" },
     { name: "COMMS", label: "Comentarios" },
@@ -39,12 +40,13 @@ export default function SystemInfo() {
     { name: "MSGES", label: "Mensajes" },
     { name: "NOTIF", label: "Notificaciones" },
     { name: "PROFS", label: "Perfiles" },
-    { name: "REPOR", label: "Reportes" }
+    { name: "reprt", label: "Reportes" }
   ]
 
   const loadServiceInfo = () => {
     setLoading(true)
     setServices([])
+    toast.info("Actualizando información de servicios...")
     
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       serviceNames.forEach(service => {
@@ -52,6 +54,9 @@ export default function SystemInfo() {
         console.log("📤 Enviando mensaje:", message)
         socketRef.current?.send(message)
       })
+    } else {
+      toast.error("Error de conexión con el servidor")
+      setLoading(false)
     }
   }
 
@@ -87,13 +92,14 @@ export default function SystemInfo() {
           try {
             const serviceOkIndex = event.data.indexOf(`${service.name}OK`)
             const jsonString = event.data.slice(serviceOkIndex + `${service.name}OK`.length)
+            console.log(`📝 Respuesta cruda de ${service.name}:`, jsonString)
             const json = JSON.parse(jsonString)
             
             const serviceInfo: ServiceInfo = {
               service_name: json.service_name || json.service || service.name.toLowerCase(),
               description: json.description || "Sin descripción",
               version: json.version || "1.0.0",
-              methods: json.methods || [],
+              methods: Array.isArray(json.methods) ? json.methods : Object.keys(json.methods || {}),
               status: json.status || "running",
               label: service.label,
               ...json
@@ -105,6 +111,7 @@ export default function SystemInfo() {
             })
           } catch (err) {
             console.error(`Error al parsear info de ${service.name}:`, err)
+            console.log("Respuesta completa:", event.data)
           }
         }
       })
@@ -112,8 +119,14 @@ export default function SystemInfo() {
       setLoading(false)
     }
 
-    socket.onerror = (err) => console.error("❌ WebSocket error:", err)
-    socket.onclose = () => console.log("🔒 WebSocket cerrado")
+    socket.onerror = (err) => {
+      console.error("❌ WebSocket error:", err)
+      toast.error("Error de conexión WebSocket")
+      setLoading(false)
+    }
+    socket.onclose = () => {
+      console.log("🔒 WebSocket cerrado")
+    }
 
     return () => socket.close()
   }, [navigate])

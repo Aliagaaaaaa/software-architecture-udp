@@ -140,11 +140,9 @@ export function Profile() {
             setHasProfile(true)
             setAvatar(json.profile.avatar || "")
             setBiografia(json.profile.biografia || "")
-            toast.success("Perfil cargado exitosamente")
           } else if (json.success && json.profiles) {
             // Lista de todos los perfiles (para moderadores)
             setAllProfiles(json.profiles)
-            toast.success(`${json.profiles.length} perfiles cargados`)
           }
         } catch (err) {
           console.error("Error al parsear perfil:", err)

@@ -101,6 +101,11 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
       url: "/crear-evento",
       icon: IconCalendarEvent,
     },
+    {
+      title: "Información del Sistema",
+      url: "/system-info",
+      icon: IconInfoCircle,
+    },
   ]
 
   const navAdmin = [
@@ -108,11 +113,6 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
       title: "Gestión de Usuarios",
       url: "/admin/users",
       icon: IconUsers,
-    },
-    {
-      title: "Información del Sistema",
-      url: "/system-info",
-      icon: IconInfoCircle,
     },
   ]
 

@@ -244,12 +244,12 @@ class AuthService(SOAServiceBase):
                 "message": f"Error executing method '{method_name}': {str(e)}"
             }
     
-    def service_info(self) -> Dict[str, Any]:
-        return {
+    def service_info(self) -> str:
+        info_data = {
             "service_name": self.service_name,
             "description": self.description,
             "version": "3.0.0",
-            "methods": self.get_available_methods(),
+            "methods": list(self.get_available_methods().keys()),
             "status": "running" if self.running else "stopped",
             "total_users": self._get_user_count(),
             "database": {
@@ -258,6 +258,7 @@ class AuthService(SOAServiceBase):
                 "connection_test": self.db.test_connection()
             }
         }
+        return json.dumps(info_data)
 
     def service_register(self, email: str, password: str, rol: str = "estudiante") -> str:
         """

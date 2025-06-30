@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ArrowLeft, Plus, MessageSquare, User, Calendar } from "lucide-react"
+import { toast } from "sonner"
 import {
   SidebarInset,
   SidebarProvider,
@@ -104,6 +105,7 @@ export default function ForumDetail() {
           }
         } catch (err) {
           console.error("Error al parsear foro:", err)
+          toast.error("Error cargando información del foro")
         }
       }
       
@@ -119,6 +121,7 @@ export default function ForumDetail() {
           }
         } catch (err) {
           console.error("Error al parsear posts:", err)
+          toast.error("Error cargando posts")
         }
       }
     }
@@ -149,9 +152,11 @@ export default function ForumDetail() {
           setIsCreateDialogOpen(false)
           setNewPostContent("")
           setLoading(false)
+          toast.success("Post creado exitosamente")
           loadPosts() // Recargar la lista
         } else if (event.data.includes("POSTSNK")) {
           setLoading(false)
+          toast.error("Error creando post")
           console.error("Error creando post")
         }
         
