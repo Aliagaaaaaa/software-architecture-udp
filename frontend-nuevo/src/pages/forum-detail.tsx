@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ArrowLeft, Plus, MessageSquare, User, Calendar } from "lucide-react"
+import { ArrowLeft, Plus, MessageSquare, User, Calendar, Bell, BellOff } from "lucide-react"
 import { toast } from "sonner"
 import {
   SidebarInset,
@@ -40,6 +40,8 @@ export default function ForumDetail() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [newPostContent, setNewPostContent] = useState("")
   const [loading, setLoading] = useState(false)
+  const [isSubscribed, setIsSubscribed] = useState(false)
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false)
   const socketRef = useRef<WebSocket | null>(null)
   const navigate = useNavigate()
 
@@ -57,6 +59,24 @@ export default function ForumDetail() {
     if (token && forumId && socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       const message = `POSTSlist_posts ${token} ${forumId}`
       console.log("📤 Enviando mensaje:", message)
+      socketRef.current.send(message)
+    }
+  }
+
+  const checkSubscription = () => {
+    const token = localStorage.getItem("token")
+    if (token && socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      socketRef.current.send(`NOTIFlist_forum_subscriptions ${token}`)
+    }
+  }
+
+  const toggleSubscription = () => {
+    const token = localStorage.getItem("token")
+    if (token && forumId && socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      setSubscriptionLoading(true)
+      const action = isSubscribed ? 'unsubscribe_forum' : 'subscribe_forum'
+      const message = `NOTIF${action} ${token} ${forumId}`
+      console.log("📤 Enviando mensaje de suscripción:", message)
       socketRef.current.send(message)
     }
   }
@@ -88,6 +108,7 @@ export default function ForumDetail() {
       console.log("🔌 WebSocket conectado")
       loadForum()
       loadPosts()
+      checkSubscription()
     }
 
     socket.onmessage = (event) => {
@@ -124,6 +145,40 @@ export default function ForumDetail() {
           toast.error("Error cargando posts")
         }
       }
+
+      // Respuesta de notificaciones
+      if (event.data.includes("NOTIFOK")) {
+        try {
+          const notifOkIndex = event.data.indexOf("NOTIFOK")
+          const jsonString = event.data.slice(notifOkIndex + "NOTIFOK".length)
+          const response = JSON.parse(jsonString)
+
+          if (response.success) {
+            // Verificar si estamos suscritos a este foro
+            if (response.subscriptions && forumId) {
+              const subscribed = response.subscriptions.some((sub: any) => 
+                sub.foro_id === parseInt(forumId)
+              )
+              setIsSubscribed(subscribed)
+            }
+
+            // Mensajes de suscripción/desuscripción
+            if (response.message && (response.message.includes("suscrito") || response.message.includes("desuscrito"))) {
+              toast.success(response.message)
+              setIsSubscribed(!isSubscribed)
+              setSubscriptionLoading(false)
+            }
+          } else {
+            if (response.message && subscriptionLoading) {
+              toast.error(response.message)
+              setSubscriptionLoading(false)
+            }
+          }
+        } catch (err) {
+          console.error("Error al parsear respuesta de notificaciones:", err)
+          setSubscriptionLoading(false)
+        }
+      }
     }
 
     socket.onerror = (err) => console.error("❌ WebSocket error:", err)
@@ -149,6 +204,24 @@ export default function ForumDetail() {
     if (socketRef.current) {
       socketRef.current.onmessage = (event) => {
         if (event.data.includes("POSTSOK") && event.data.includes("creado exitosamente")) {
+          // Extraer el ID del post de la respuesta para crear notificación
+          try {
+            const postsOkIndex = event.data.indexOf("POSTSOK")
+            const jsonString = event.data.slice(postsOkIndex + "POSTSOK".length)
+            const response = JSON.parse(jsonString)
+            
+            if (response.success && response.post && response.post.id_post && forum) {
+              // Crear notificación para suscriptores del foro
+              const token = localStorage.getItem("token")
+              if (token) {
+                const notificationMessage = `NOTIFcreate_post_notification ${token} ${forumId} ${response.post.id_post} '${newPostContent.substring(0, 50)}...'`
+                socketRef.current?.send(notificationMessage)
+              }
+            }
+          } catch (err) {
+            console.error("Error procesando respuesta de post:", err)
+          }
+          
           setIsCreateDialogOpen(false)
           setNewPostContent("")
           setLoading(false)
@@ -204,11 +277,33 @@ export default function ForumDetail() {
 
               {forum && (
                 <div className="space-y-4">
-                  <div>
-                    <h1 className="text-3xl font-bold">{forum.titulo}</h1>
-                    <p className="text-muted-foreground mt-1">
-                      Categoría: {forum.categoria} • Creado por: {forum.creador_email}
-                    </p>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h1 className="text-3xl font-bold">{forum.titulo}</h1>
+                      <p className="text-muted-foreground mt-1">
+                        Categoría: {forum.categoria} • Creado por: {forum.creador_email}
+                      </p>
+                    </div>
+                    <Button
+                      variant={isSubscribed ? "outline" : "default"}
+                      onClick={toggleSubscription}
+                      disabled={subscriptionLoading}
+                      className="min-w-[140px]"
+                    >
+                      {subscriptionLoading ? (
+                        "Procesando..."
+                      ) : isSubscribed ? (
+                        <>
+                          <BellOff className="mr-2 h-4 w-4" />
+                          Desuscribirse
+                        </>
+                      ) : (
+                        <>
+                          <Bell className="mr-2 h-4 w-4" />
+                          Suscribirse
+                        </>
+                      )}
+                    </Button>
                   </div>
 
                   <div className="flex justify-between items-center">

@@ -288,6 +288,27 @@ export default function Messages() {
     if (socketRef.current) {
       socketRef.current.onmessage = (event) => {
         if (event.data.includes("MSGESOK") && event.data.includes("enviado exitosamente")) {
+          // Extraer el ID del mensaje de la respuesta para crear notificación
+          try {
+            const msgesOkIndex = event.data.indexOf("MSGESOK")
+            const jsonString = event.data.slice(msgesOkIndex + "MSGESOK".length)
+            const response = JSON.parse(jsonString)
+            
+            if (response.success && response.message && response.message.id_mensaje) {
+              // Crear notificación para el receptor del mensaje
+              const token = localStorage.getItem("token")
+              if (token) {
+                const messagePreview = newMessageContent.length > 50 ? 
+                  newMessageContent.substring(0, 50) + "..." : 
+                  newMessageContent
+                const notificationMessage = `NOTIFcreate_message_notification ${token} ${newMessageEmail} ${response.message.id_mensaje} '${messagePreview}'`
+                socketRef.current?.send(notificationMessage)
+              }
+            }
+          } catch (err) {
+            console.error("Error procesando respuesta de mensaje:", err)
+          }
+          
           setIsCreateDialogOpen(false)
           setNewMessageEmail("")
           setNewMessageContent("")

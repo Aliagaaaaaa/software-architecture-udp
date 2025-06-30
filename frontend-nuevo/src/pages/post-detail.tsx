@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
-import { ArrowLeft, Plus, MessageSquare, User, Calendar, MoreVertical, Edit, Trash2, Shield, Flag } from "lucide-react"
+import { ArrowLeft, Plus, MessageSquare, User, Calendar, MoreVertical, Edit, Trash2, Shield, Flag, Bell, BellOff } from "lucide-react"
 import {
   SidebarInset,
   SidebarProvider,
@@ -51,6 +51,8 @@ export default function PostDetail() {
   const [editCommentContent, setEditCommentContent] = useState("")
   const [editPostContent, setEditPostContent] = useState("")
   const [loading, setLoading] = useState(false)
+  const [isSubscribed, setIsSubscribed] = useState(false)
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false)
   const socketRef = useRef<WebSocket | null>(null)
   const navigate = useNavigate()
 
@@ -68,6 +70,24 @@ export default function PostDetail() {
     if (token && postId && socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       const message = `COMMSlist_comments ${token} ${postId}`
       console.log("📤 Enviando mensaje:", message)
+      socketRef.current.send(message)
+    }
+  }
+
+  const checkSubscription = () => {
+    const token = localStorage.getItem("token")
+    if (token && socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      socketRef.current.send(`NOTIFlist_post_subscriptions ${token}`)
+    }
+  }
+
+  const toggleSubscription = () => {
+    const token = localStorage.getItem("token")
+    if (token && postId && socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      setSubscriptionLoading(true)
+      const action = isSubscribed ? 'unsubscribe_post' : 'subscribe_post'
+      const message = `NOTIF${action} ${token} ${postId}`
+      console.log("📤 Enviando mensaje de suscripción:", message)
       socketRef.current.send(message)
     }
   }
@@ -99,6 +119,7 @@ export default function PostDetail() {
       console.log("🔌 WebSocket conectado")
       loadPost()
       loadComments()
+      checkSubscription()
     }
 
     socket.onmessage = (event) => {
@@ -166,6 +187,40 @@ export default function PostDetail() {
           toast.error("Error cargando comentarios")
         }
       }
+
+      // Respuesta de notificaciones
+      if (event.data.includes("NOTIFOK")) {
+        try {
+          const notifOkIndex = event.data.indexOf("NOTIFOK")
+          const jsonString = event.data.slice(notifOkIndex + "NOTIFOK".length)
+          const response = JSON.parse(jsonString)
+
+          if (response.success) {
+            // Verificar si estamos suscritos a este post
+            if (response.subscriptions && postId) {
+              const subscribed = response.subscriptions.some((sub: any) => 
+                sub.post_id === parseInt(postId)
+              )
+              setIsSubscribed(subscribed)
+            }
+
+            // Mensajes de suscripción/desuscripción
+            if (response.message && (response.message.includes("suscrito") || response.message.includes("desuscrito"))) {
+              toast.success(response.message)
+              setIsSubscribed(!isSubscribed)
+              setSubscriptionLoading(false)
+            }
+          } else {
+            if (response.message && subscriptionLoading) {
+              toast.error(response.message)
+              setSubscriptionLoading(false)
+            }
+          }
+        } catch (err) {
+          console.error("Error al parsear respuesta de notificaciones:", err)
+          setSubscriptionLoading(false)
+        }
+      }
     }
 
     socket.onerror = (err) => {
@@ -209,6 +264,27 @@ export default function PostDetail() {
     if (socketRef.current) {
       socketRef.current.onmessage = (event) => {
         if (event.data.includes("COMMSOK") && event.data.includes("creado exitosamente")) {
+          // Extraer el ID del comentario de la respuesta para crear notificación
+          try {
+            const commsOkIndex = event.data.indexOf("COMMSOK")
+            const jsonString = event.data.slice(commsOkIndex + "COMMSOK".length)
+            const response = JSON.parse(jsonString)
+            
+            if (response.success && response.comment && response.comment.id_comentario && post) {
+              // Crear notificación para suscriptores del post
+              const token = localStorage.getItem("token")
+              if (token) {
+                const postTitle = post.contenido.length > 50 ? 
+                  post.contenido.substring(0, 50) + "..." : 
+                  post.contenido
+                const notificationMessage = `NOTIFcreate_comment_notification ${token} ${postId} ${response.comment.id_comentario} '${postTitle}'`
+                socketRef.current?.send(notificationMessage)
+              }
+            }
+          } catch (err) {
+            console.error("Error procesando respuesta de comentario:", err)
+          }
+          
           setIsCreateDialogOpen(false)
           setNewCommentContent("")
           setLoading(false)
@@ -608,13 +684,35 @@ export default function PostDetail() {
                         <MessageSquare className="h-5 w-5" />
                         Comentarios ({comments.length})
                       </h2>
-                      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                        <DialogTrigger asChild>
-                          <Button>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Comentar
-                          </Button>
-                        </DialogTrigger>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant={isSubscribed ? "outline" : "secondary"}
+                          size="sm"
+                          onClick={toggleSubscription}
+                          disabled={subscriptionLoading}
+                          className="min-w-[120px]"
+                        >
+                          {subscriptionLoading ? (
+                            "..."
+                          ) : isSubscribed ? (
+                            <>
+                              <BellOff className="mr-2 h-4 w-4" />
+                              Desuscribirse
+                            </>
+                          ) : (
+                            <>
+                              <Bell className="mr-2 h-4 w-4" />
+                              Suscribirse
+                            </>
+                          )}
+                        </Button>
+                        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button>
+                              <Plus className="mr-2 h-4 w-4" />
+                              Comentar
+                            </Button>
+                          </DialogTrigger>
                         <DialogContent className="max-w-2xl">
                           <DialogHeader>
                             <DialogTitle>Nuevo Comentario</DialogTitle>
@@ -652,6 +750,7 @@ export default function PostDetail() {
                           </form>
                         </DialogContent>
                       </Dialog>
+                      </div>
                     </div>
 
                     {/* Dialog para editar comentario */}

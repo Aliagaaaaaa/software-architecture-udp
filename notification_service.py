@@ -34,6 +34,32 @@ class NotificationService(SOAServiceBase):
         # Inicializar base de datos
         self._init_database()
         
+        # Registrar métodos del servicio
+        self.register_method("list_notifications", self.service_list_notifications)
+        self.register_method("get_unread_count", self.service_get_unread_count)
+        self.register_method("mark_as_read", self.service_mark_as_read)
+        self.register_method("mark_all_as_read", self.service_mark_all_as_read)
+        self.register_method("get_notification", self.service_get_notification)
+        self.register_method("delete_notification", self.service_delete_notification)
+        self.register_method("clear_all_notifications", self.service_clear_all_notifications)
+        
+        # Métodos de suscripciones
+        self.register_method("subscribe_forum", self.service_subscribe_forum)
+        self.register_method("unsubscribe_forum", self.service_unsubscribe_forum)
+        self.register_method("subscribe_post", self.service_subscribe_post)
+        self.register_method("unsubscribe_post", self.service_unsubscribe_post)
+        self.register_method("list_forum_subscriptions", self.service_list_forum_subscriptions)
+        self.register_method("list_post_subscriptions", self.service_list_post_subscriptions)
+        
+        # Métodos para crear notificaciones
+        self.register_method("create_post_notification", self.service_create_post_notification)
+        self.register_method("create_comment_notification", self.service_create_comment_notification)
+        self.register_method("create_message_notification", self.service_create_message_notification)
+        
+        # Métodos admin
+        self.register_method("admin_list_all_notifications", self.service_admin_list_all_notifications)
+        self.register_method("info", self.service_info)
+        
         self.logger.info("🔔 Servicio de Notificaciones inicializado")
 
     def _process_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
@@ -73,7 +99,7 @@ class NotificationService(SOAServiceBase):
     def _init_database(self):
         """Inicializa las tablas necesarias en la base de datos"""
         try:
-            # Crear tabla NOTIFICACION
+            # Crear tabla NOTIFICACION (mejorada)
             create_notification_sql = """
             CREATE TABLE IF NOT EXISTS NOTIFICACION (
                 id_notificacion INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -82,17 +108,56 @@ class NotificationService(SOAServiceBase):
                 mensaje TEXT NOT NULL,
                 tipo VARCHAR(50) NOT NULL,
                 referencia_id INTEGER,
+                referencia_tipo VARCHAR(20),
                 leido BOOLEAN DEFAULT FALSE,
                 fecha TIMESTAMP NOT NULL,
-                FOREIGN KEY (usuario_id) REFERENCES USUARIO (id_usuario)
+                creador_id INTEGER,
+                FOREIGN KEY (usuario_id) REFERENCES USUARIO (id_usuario),
+                FOREIGN KEY (creador_id) REFERENCES USUARIO (id_usuario)
             )
             """
             
-            result = self.db_client.execute_query(create_notification_sql)
-            if result.get('success'):
-                self.logger.info("✅ Tabla NOTIFICACION creada/verificada correctamente")
-            else:
-                self.logger.error(f"❌ Error creando tabla NOTIFICACION: {result.get('error')}")
+            # Crear tabla SUSCRIPCION_FORO
+            create_forum_subscription_sql = """
+            CREATE TABLE IF NOT EXISTS SUSCRIPCION_FORO (
+                id_suscripcion INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario_id INTEGER NOT NULL,
+                foro_id INTEGER NOT NULL,
+                fecha_suscripcion TIMESTAMP NOT NULL,
+                activa BOOLEAN DEFAULT TRUE,
+                FOREIGN KEY (usuario_id) REFERENCES USUARIO (id_usuario),
+                FOREIGN KEY (foro_id) REFERENCES FORO (id_foro),
+                UNIQUE(usuario_id, foro_id)
+            )
+            """
+            
+            # Crear tabla SUSCRIPCION_POST
+            create_post_subscription_sql = """
+            CREATE TABLE IF NOT EXISTS SUSCRIPCION_POST (
+                id_suscripcion INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario_id INTEGER NOT NULL,
+                post_id INTEGER NOT NULL,
+                fecha_suscripcion TIMESTAMP NOT NULL,
+                activa BOOLEAN DEFAULT TRUE,
+                FOREIGN KEY (usuario_id) REFERENCES USUARIO (id_usuario),
+                FOREIGN KEY (post_id) REFERENCES POST (id_post),
+                UNIQUE(usuario_id, post_id)
+            )
+            """
+            
+            # Ejecutar creación de tablas
+            tables = [
+                ("NOTIFICACION", create_notification_sql),
+                ("SUSCRIPCION_FORO", create_forum_subscription_sql),
+                ("SUSCRIPCION_POST", create_post_subscription_sql)
+            ]
+            
+            for table_name, sql in tables:
+                result = self.db_client.execute_query(sql)
+                if result.get('success'):
+                    self.logger.info(f"✅ Tabla {table_name} creada/verificada correctamente")
+                else:
+                    self.logger.error(f"❌ Error creando tabla {table_name}: {result.get('error')}")
                 
         except Exception as e:
             self.logger.error(f"❌ Error inicializando base de datos: {e}")
@@ -158,6 +223,10 @@ class NotificationService(SOAServiceBase):
         else:
             return list(row_data[:len(field_names)])
 
+    def register_method(self, name: str, method):
+        """Método helper para registrar métodos manualmente si es necesario"""
+        self.methods[name] = method
+
     def service_list_notifications(self, params_str: str) -> str:
         """Lista las notificaciones del usuario autenticado"""
         try:
@@ -178,7 +247,7 @@ class NotificationService(SOAServiceBase):
             
             # Obtener notificaciones del usuario ordenadas por fecha (más recientes primero)
             query = """
-            SELECT id_notificacion, usuario_id, titulo, mensaje, tipo, referencia_id, leido, fecha
+            SELECT id_notificacion, usuario_id, titulo, mensaje, tipo, referencia_id, referencia_tipo, leido, fecha, creador_id
             FROM NOTIFICACION
             WHERE usuario_id = ?
             ORDER BY fecha DESC
@@ -192,7 +261,7 @@ class NotificationService(SOAServiceBase):
                 for notification_data in result.get('results', []):
                     # Extraer campos usando el helper
                     fields = self._extract_db_fields(notification_data, [
-                        'id_notificacion', 'usuario_id', 'titulo', 'mensaje', 'tipo', 'referencia_id', 'leido', 'fecha'
+                        'id_notificacion', 'usuario_id', 'titulo', 'mensaje', 'tipo', 'referencia_id', 'referencia_tipo', 'leido', 'fecha', 'creador_id'
                     ])
                     
                     notification = {
@@ -202,8 +271,10 @@ class NotificationService(SOAServiceBase):
                         "mensaje": fields[3],
                         "tipo": fields[4],
                         "referencia_id": fields[5],
-                        "leido": bool(fields[6]),
-                        "fecha": fields[7]
+                        "referencia_tipo": fields[6],
+                        "leido": bool(fields[7]),
+                        "fecha": fields[8],
+                        "creador_id": fields[9]
                     }
                     notifications.append(notification)
                 
@@ -357,7 +428,7 @@ class NotificationService(SOAServiceBase):
             
             # Obtener notificación específica
             query = """
-            SELECT id_notificacion, usuario_id, titulo, mensaje, tipo, referencia_id, leido, fecha
+            SELECT id_notificacion, usuario_id, titulo, mensaje, tipo, referencia_id, referencia_tipo, leido, fecha, creador_id
             FROM NOTIFICACION
             WHERE id_notificacion = ? AND usuario_id = ?
             """
@@ -367,9 +438,9 @@ class NotificationService(SOAServiceBase):
             if result.get('success') and result.get('results'):
                 notification_data = result['results'][0]
                 
-                # Extraer campos usando el helper
+                                # Extraer campos usando el helper  
                 fields = self._extract_db_fields(notification_data, [
-                    'id_notificacion', 'usuario_id', 'titulo', 'mensaje', 'tipo', 'referencia_id', 'leido', 'fecha'
+                    'id_notificacion', 'usuario_id', 'titulo', 'mensaje', 'tipo', 'referencia_id', 'referencia_tipo', 'leido', 'fecha', 'creador_id'
                 ])
                 
                 notification = {
@@ -379,8 +450,10 @@ class NotificationService(SOAServiceBase):
                     "mensaje": fields[3],
                     "tipo": fields[4],
                     "referencia_id": fields[5],
-                    "leido": bool(fields[6]),
-                    "fecha": fields[7]
+                    "referencia_tipo": fields[6],
+                    "leido": bool(fields[7]),
+                    "fecha": fields[8],
+                    "creador_id": fields[9]
                 }
                 
                 return json.dumps({
@@ -501,7 +574,7 @@ class NotificationService(SOAServiceBase):
             # Obtener todas las notificaciones con información del usuario
             query = """
             SELECT n.id_notificacion, n.usuario_id, n.titulo, n.mensaje, n.tipo, 
-                   n.referencia_id, n.leido, n.fecha, u.email as usuario_email
+                   n.referencia_id, n.referencia_tipo, n.leido, n.fecha, n.creador_id, u.email as usuario_email
             FROM NOTIFICACION n
             LEFT JOIN USUARIO u ON n.usuario_id = u.id_usuario
             ORDER BY n.fecha DESC
@@ -516,7 +589,7 @@ class NotificationService(SOAServiceBase):
                     # Extraer campos usando el helper
                     fields = self._extract_db_fields(notification_data, [
                         'id_notificacion', 'usuario_id', 'titulo', 'mensaje', 'tipo',
-                        'referencia_id', 'leido', 'fecha', 'usuario_email'
+                        'referencia_id', 'referencia_tipo', 'leido', 'fecha', 'creador_id', 'usuario_email'
                     ])
                     
                     notification = {
@@ -526,9 +599,11 @@ class NotificationService(SOAServiceBase):
                         "mensaje": fields[3],
                         "tipo": fields[4],
                         "referencia_id": fields[5],
-                        "leido": bool(fields[6]),
-                        "fecha": fields[7],
-                        "usuario_email": fields[8] or 'Desconocido'
+                        "referencia_tipo": fields[6],
+                        "leido": bool(fields[7]),
+                        "fecha": fields[8],
+                        "creador_id": fields[9],
+                        "usuario_email": fields[10] or 'Desconocido'
                     }
                     notifications.append(notification)
                 
@@ -544,24 +619,530 @@ class NotificationService(SOAServiceBase):
             self.logger.error(f"Error en admin_list_all_notifications: {e}")
             return json.dumps({"success": False, "message": f"Error interno: {str(e)}"})
 
+    # === MÉTODOS DE SUSCRIPCIONES ===
+    
+    def service_subscribe_forum(self, params_str: str) -> str:
+        """Suscribe al usuario a un foro para recibir notificaciones"""
+        try:
+            params = self._parse_quoted_params(params_str)
+            if len(params) < 2:
+                return json.dumps({"success": False, "message": "Parámetros requeridos: token foro_id"})
+            
+            token = params[0]
+            foro_id = params[1]
+            
+            # Verificar token
+            token_result = self._verify_token(token)
+            if not token_result.get('success'):
+                return json.dumps({"success": False, "message": token_result.get('message')})
+            
+            user_payload = token_result['payload']
+            usuario_id = user_payload.get('id_usuario')
+            
+            # Verificar que el foro existe
+            check_forum_query = "SELECT titulo FROM FORO WHERE id_foro = ?"
+            forum_result = self.db_client.execute_query(check_forum_query, [foro_id])
+            
+            if not forum_result.get('success') or not forum_result.get('results'):
+                return json.dumps({"success": False, "message": "Foro no encontrado"})
+            
+            # Crear suscripción (el UNIQUE evita duplicados)
+            from datetime import datetime
+            now = datetime.now().isoformat()
+            
+            insert_query = """
+            INSERT OR REPLACE INTO SUSCRIPCION_FORO (usuario_id, foro_id, fecha_suscripcion, activa)
+            VALUES (?, ?, ?, TRUE)
+            """
+            
+            result = self.db_client.execute_query(insert_query, [usuario_id, foro_id, now])
+            
+            if result.get('success'):
+                titulo_foro = forum_result['results'][0][0]
+                self.logger.info(f"📧 Usuario {user_payload.get('email')} suscrito al foro {titulo_foro}")
+                return json.dumps({
+                    "success": True,
+                    "message": f"Te has suscrito exitosamente al foro '{titulo_foro}'"
+                })
+            else:
+                return json.dumps({"success": False, "message": f"Error creando suscripción: {result.get('error')}"})
+                
+        except Exception as e:
+            self.logger.error(f"Error en subscribe_forum: {e}")
+            return json.dumps({"success": False, "message": f"Error interno: {str(e)}"})
+
+    def service_unsubscribe_forum(self, params_str: str) -> str:
+        """Desuscribe al usuario de un foro"""
+        try:
+            params = self._parse_quoted_params(params_str)
+            if len(params) < 2:
+                return json.dumps({"success": False, "message": "Parámetros requeridos: token foro_id"})
+            
+            token = params[0]
+            foro_id = params[1]
+            
+            # Verificar token
+            token_result = self._verify_token(token)
+            if not token_result.get('success'):
+                return json.dumps({"success": False, "message": token_result.get('message')})
+            
+            user_payload = token_result['payload']
+            usuario_id = user_payload.get('id_usuario')
+            
+            # Eliminar suscripción
+            delete_query = "DELETE FROM SUSCRIPCION_FORO WHERE usuario_id = ? AND foro_id = ?"
+            result = self.db_client.execute_query(delete_query, [usuario_id, foro_id])
+            
+            if result.get('success'):
+                self.logger.info(f"📧❌ Usuario {user_payload.get('email')} desuscrito del foro {foro_id}")
+                return json.dumps({
+                    "success": True,
+                    "message": "Te has desuscrito exitosamente del foro"
+                })
+            else:
+                return json.dumps({"success": False, "message": f"Error eliminando suscripción: {result.get('error')}"})
+                
+        except Exception as e:
+            self.logger.error(f"Error en unsubscribe_forum: {e}")
+            return json.dumps({"success": False, "message": f"Error interno: {str(e)}"})
+
+    def service_subscribe_post(self, params_str: str) -> str:
+        """Suscribe al usuario a un post para recibir notificaciones"""
+        try:
+            params = self._parse_quoted_params(params_str)
+            if len(params) < 2:
+                return json.dumps({"success": False, "message": "Parámetros requeridos: token post_id"})
+            
+            token = params[0]
+            post_id = params[1]
+            
+            # Verificar token
+            token_result = self._verify_token(token)
+            if not token_result.get('success'):
+                return json.dumps({"success": False, "message": token_result.get('message')})
+            
+            user_payload = token_result['payload']
+            usuario_id = user_payload.get('id_usuario')
+            
+            # Verificar que el post existe
+            check_post_query = "SELECT titulo FROM POST WHERE id_post = ?"
+            post_result = self.db_client.execute_query(check_post_query, [post_id])
+            
+            if not post_result.get('success') or not post_result.get('results'):
+                return json.dumps({"success": False, "message": "Post no encontrado"})
+            
+            # Crear suscripción
+            from datetime import datetime
+            now = datetime.now().isoformat()
+            
+            insert_query = """
+            INSERT OR REPLACE INTO SUSCRIPCION_POST (usuario_id, post_id, fecha_suscripcion, activa)
+            VALUES (?, ?, ?, TRUE)
+            """
+            
+            result = self.db_client.execute_query(insert_query, [usuario_id, post_id, now])
+            
+            if result.get('success'):
+                titulo_post = post_result['results'][0][0]
+                self.logger.info(f"📧 Usuario {user_payload.get('email')} suscrito al post {titulo_post}")
+                return json.dumps({
+                    "success": True,
+                    "message": f"Te has suscrito exitosamente al post '{titulo_post}'"
+                })
+            else:
+                return json.dumps({"success": False, "message": f"Error creando suscripción: {result.get('error')}"})
+                
+        except Exception as e:
+            self.logger.error(f"Error en subscribe_post: {e}")
+            return json.dumps({"success": False, "message": f"Error interno: {str(e)}"})
+
+    def service_unsubscribe_post(self, params_str: str) -> str:
+        """Desuscribe al usuario de un post"""
+        try:
+            params = self._parse_quoted_params(params_str)
+            if len(params) < 2:
+                return json.dumps({"success": False, "message": "Parámetros requeridos: token post_id"})
+            
+            token = params[0]
+            post_id = params[1]
+            
+            # Verificar token
+            token_result = self._verify_token(token)
+            if not token_result.get('success'):
+                return json.dumps({"success": False, "message": token_result.get('message')})
+            
+            user_payload = token_result['payload']
+            usuario_id = user_payload.get('id_usuario')
+            
+            # Eliminar suscripción
+            delete_query = "DELETE FROM SUSCRIPCION_POST WHERE usuario_id = ? AND post_id = ?"
+            result = self.db_client.execute_query(delete_query, [usuario_id, post_id])
+            
+            if result.get('success'):
+                self.logger.info(f"📧❌ Usuario {user_payload.get('email')} desuscrito del post {post_id}")
+                return json.dumps({
+                    "success": True,
+                    "message": "Te has desuscrito exitosamente del post"
+                })
+            else:
+                return json.dumps({"success": False, "message": f"Error eliminando suscripción: {result.get('error')}"})
+                
+        except Exception as e:
+            self.logger.error(f"Error en unsubscribe_post: {e}")
+            return json.dumps({"success": False, "message": f"Error interno: {str(e)}"})
+
+    def service_list_forum_subscriptions(self, params_str: str) -> str:
+        """Lista las suscripciones a foros del usuario"""
+        try:
+            params = self._parse_quoted_params(params_str)
+            if len(params) < 1:
+                return json.dumps({"success": False, "message": "Parámetros requeridos: token"})
+            
+            token = params[0]
+            
+            # Verificar token
+            token_result = self._verify_token(token)
+            if not token_result.get('success'):
+                return json.dumps({"success": False, "message": token_result.get('message')})
+            
+            user_payload = token_result['payload']
+            usuario_id = user_payload.get('id_usuario')
+            
+            # Obtener suscripciones con información del foro
+            query = """
+            SELECT sf.id_suscripcion, sf.foro_id, sf.fecha_suscripcion, 
+                   f.titulo, f.categoria
+            FROM SUSCRIPCION_FORO sf
+            LEFT JOIN FORO f ON sf.foro_id = f.id_foro
+            WHERE sf.usuario_id = ? AND sf.activa = TRUE
+            ORDER BY sf.fecha_suscripcion DESC
+            """
+            
+            result = self.db_client.execute_query(query, [usuario_id])
+            
+            if result.get('success'):
+                subscriptions = []
+                for sub_data in result.get('results', []):
+                    fields = self._extract_db_fields(sub_data, [
+                        'id_suscripcion', 'foro_id', 'fecha_suscripcion', 'titulo', 'categoria'
+                    ])
+                    
+                    subscription = {
+                        "id_suscripcion": fields[0],
+                        "foro_id": fields[1],
+                        "fecha_suscripcion": fields[2],
+                        "titulo_foro": fields[3] or 'Foro eliminado',
+                        "categoria": fields[4] or 'N/A'
+                    }
+                    subscriptions.append(subscription)
+                
+                return json.dumps({
+                    "success": True,
+                    "message": f"Se encontraron {len(subscriptions)} suscripciones a foros",
+                    "subscriptions": subscriptions
+                })
+            else:
+                return json.dumps({"success": False, "message": f"Error obteniendo suscripciones: {result.get('error')}"})
+                
+        except Exception as e:
+            self.logger.error(f"Error en list_forum_subscriptions: {e}")
+            return json.dumps({"success": False, "message": f"Error interno: {str(e)}"})
+
+    def service_list_post_subscriptions(self, params_str: str) -> str:
+        """Lista las suscripciones a posts del usuario"""
+        try:
+            params = self._parse_quoted_params(params_str)
+            if len(params) < 1:
+                return json.dumps({"success": False, "message": "Parámetros requeridos: token"})
+            
+            token = params[0]
+            
+            # Verificar token
+            token_result = self._verify_token(token)
+            if not token_result.get('success'):
+                return json.dumps({"success": False, "message": token_result.get('message')})
+            
+            user_payload = token_result['payload']
+            usuario_id = user_payload.get('id_usuario')
+            
+            # Obtener suscripciones con información del post
+            query = """
+            SELECT sp.id_suscripcion, sp.post_id, sp.fecha_suscripcion, 
+                   p.titulo, p.foro_id
+            FROM SUSCRIPCION_POST sp
+            LEFT JOIN POST p ON sp.post_id = p.id_post
+            WHERE sp.usuario_id = ? AND sp.activa = TRUE
+            ORDER BY sp.fecha_suscripcion DESC
+            """
+            
+            result = self.db_client.execute_query(query, [usuario_id])
+            
+            if result.get('success'):
+                subscriptions = []
+                for sub_data in result.get('results', []):
+                    fields = self._extract_db_fields(sub_data, [
+                        'id_suscripcion', 'post_id', 'fecha_suscripcion', 'titulo', 'foro_id'
+                    ])
+                    
+                    subscription = {
+                        "id_suscripcion": fields[0],
+                        "post_id": fields[1],
+                        "fecha_suscripcion": fields[2],
+                        "titulo_post": fields[3] or 'Post eliminado',
+                        "foro_id": fields[4]
+                    }
+                    subscriptions.append(subscription)
+                
+                return json.dumps({
+                    "success": True,
+                    "message": f"Se encontraron {len(subscriptions)} suscripciones a posts",
+                    "subscriptions": subscriptions
+                })
+            else:
+                return json.dumps({"success": False, "message": f"Error obteniendo suscripciones: {result.get('error')}"})
+                
+        except Exception as e:
+            self.logger.error(f"Error en list_post_subscriptions: {e}")
+            return json.dumps({"success": False, "message": f"Error interno: {str(e)}"})
+
+    # === MÉTODOS PARA CREAR NOTIFICACIONES ===
+    
+    def service_create_post_notification(self, params_str: str) -> str:
+        """Crea notificaciones para usuarios suscritos a un foro cuando se publica un nuevo post"""
+        try:
+            params = self._parse_quoted_params(params_str)
+            if len(params) < 4:
+                return json.dumps({"success": False, "message": "Parámetros requeridos: token foro_id post_id titulo_post"})
+            
+            token = params[0]
+            foro_id = params[1]
+            post_id = params[2]
+            titulo_post = params[3]
+            
+            # Verificar token (el que crea el post)
+            token_result = self._verify_token(token)
+            if not token_result.get('success'):
+                return json.dumps({"success": False, "message": token_result.get('message')})
+            
+            user_payload = token_result['payload']
+            creador_id = user_payload.get('id_usuario')
+            creador_email = user_payload.get('email')
+            
+            # Obtener usuarios suscritos al foro (excepto el creador del post)
+            query = """
+            SELECT sf.usuario_id, u.email 
+            FROM SUSCRIPCION_FORO sf
+            LEFT JOIN USUARIO u ON sf.usuario_id = u.id_usuario
+            WHERE sf.foro_id = ? AND sf.activa = TRUE AND sf.usuario_id != ?
+            """
+            
+            result = self.db_client.execute_query(query, [foro_id, creador_id])
+            
+            if result.get('success'):
+                subscribers = result.get('results', [])
+                notifications_created = 0
+                
+                from datetime import datetime
+                now = datetime.now().isoformat()
+                
+                for subscriber_data in subscribers:
+                    fields = self._extract_db_fields(subscriber_data, ['usuario_id', 'email'])
+                    usuario_id = fields[0]
+                    
+                    # Crear notificación
+                    insert_query = """
+                    INSERT INTO NOTIFICACION (usuario_id, titulo, mensaje, tipo, referencia_id, referencia_tipo, fecha, creador_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """
+                    
+                    titulo = "📝 Nuevo post en foro suscrito"
+                    mensaje = f"{creador_email} publicó '{titulo_post}'"
+                    
+                    notif_result = self.db_client.execute_query(insert_query, [
+                        usuario_id, titulo, mensaje, 'foro', post_id, 'post', now, creador_id
+                    ])
+                    
+                    if notif_result.get('success'):
+                        notifications_created += 1
+                
+                self.logger.info(f"📧 {notifications_created} notificaciones creadas para nuevo post en foro {foro_id}")
+                return json.dumps({
+                    "success": True,
+                    "message": f"Se crearon {notifications_created} notificaciones",
+                    "notifications_created": notifications_created
+                })
+            else:
+                return json.dumps({"success": False, "message": f"Error obteniendo suscriptores: {result.get('error')}"})
+                
+        except Exception as e:
+            self.logger.error(f"Error en create_post_notification: {e}")
+            return json.dumps({"success": False, "message": f"Error interno: {str(e)}"})
+
+    def service_create_comment_notification(self, params_str: str) -> str:
+        """Crea notificaciones para usuarios suscritos a un post cuando se agrega un comentario"""
+        try:
+            params = self._parse_quoted_params(params_str)
+            if len(params) < 4:
+                return json.dumps({"success": False, "message": "Parámetros requeridos: token post_id comentario_id titulo_post"})
+            
+            token = params[0]
+            post_id = params[1]
+            comentario_id = params[2]
+            titulo_post = params[3]
+            
+            # Verificar token (el que crea el comentario)
+            token_result = self._verify_token(token)
+            if not token_result.get('success'):
+                return json.dumps({"success": False, "message": token_result.get('message')})
+            
+            user_payload = token_result['payload']
+            creador_id = user_payload.get('id_usuario')
+            creador_email = user_payload.get('email')
+            
+            # Obtener usuarios suscritos al post (excepto el creador del comentario)
+            # También incluir al autor del post si no está suscrito explícitamente
+            query = """
+            SELECT DISTINCT u.id_usuario, u.email
+            FROM USUARIO u
+            WHERE u.id_usuario IN (
+                SELECT sp.usuario_id 
+                FROM SUSCRIPCION_POST sp 
+                WHERE sp.post_id = ? AND sp.activa = TRUE
+                UNION
+                SELECT p.autor_id 
+                FROM POST p 
+                WHERE p.id_post = ?
+            ) AND u.id_usuario != ?
+            """
+            
+            result = self.db_client.execute_query(query, [post_id, post_id, creador_id])
+            
+            if result.get('success'):
+                subscribers = result.get('results', [])
+                notifications_created = 0
+                
+                from datetime import datetime
+                now = datetime.now().isoformat()
+                
+                for subscriber_data in subscribers:
+                    fields = self._extract_db_fields(subscriber_data, ['id_usuario', 'email'])
+                    usuario_id = fields[0]
+                    
+                    # Crear notificación
+                    insert_query = """
+                    INSERT INTO NOTIFICACION (usuario_id, titulo, mensaje, tipo, referencia_id, referencia_tipo, fecha, creador_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """
+                    
+                    titulo = "💬 Nuevo comentario en post suscrito"
+                    mensaje = f"{creador_email} comentó en '{titulo_post}'"
+                    
+                    notif_result = self.db_client.execute_query(insert_query, [
+                        usuario_id, titulo, mensaje, 'post', comentario_id, 'comentario', now, creador_id
+                    ])
+                    
+                    if notif_result.get('success'):
+                        notifications_created += 1
+                
+                self.logger.info(f"💬 {notifications_created} notificaciones creadas para nuevo comentario en post {post_id}")
+                return json.dumps({
+                    "success": True,
+                    "message": f"Se crearon {notifications_created} notificaciones",
+                    "notifications_created": notifications_created
+                })
+            else:
+                return json.dumps({"success": False, "message": f"Error obteniendo suscriptores: {result.get('error')}"})
+                
+        except Exception as e:
+            self.logger.error(f"Error en create_comment_notification: {e}")
+            return json.dumps({"success": False, "message": f"Error interno: {str(e)}"})
+
+    def service_create_message_notification(self, params_str: str) -> str:
+        """Crea una notificación para el destinatario de un mensaje"""
+        try:
+            params = self._parse_quoted_params(params_str)
+            if len(params) < 4:
+                return json.dumps({"success": False, "message": "Parámetros requeridos: token destinatario_id mensaje_id preview_contenido"})
+            
+            token = params[0]
+            destinatario_id = params[1]
+            mensaje_id = params[2]
+            preview_contenido = params[3]
+            
+            # Verificar token (el que envía el mensaje)
+            token_result = self._verify_token(token)
+            if not token_result.get('success'):
+                return json.dumps({"success": False, "message": token_result.get('message')})
+            
+            user_payload = token_result['payload']
+            remitente_id = user_payload.get('id_usuario')
+            remitente_email = user_payload.get('email')
+            
+            # Verificar que el destinatario existe
+            check_user_query = "SELECT email FROM USUARIO WHERE id_usuario = ?"
+            user_result = self.db_client.execute_query(check_user_query, [destinatario_id])
+            
+            if not user_result.get('success') or not user_result.get('results'):
+                return json.dumps({"success": False, "message": "Destinatario no encontrado"})
+            
+            # Crear notificación
+            from datetime import datetime
+            now = datetime.now().isoformat()
+            
+            insert_query = """
+            INSERT INTO NOTIFICACION (usuario_id, titulo, mensaje, tipo, referencia_id, referencia_tipo, fecha, creador_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """
+            
+            titulo = "📩 Nuevo mensaje recibido"
+            mensaje = f"Mensaje de {remitente_email}: {preview_contenido[:50]}{'...' if len(preview_contenido) > 50 else ''}"
+            
+            result = self.db_client.execute_query(insert_query, [
+                destinatario_id, titulo, mensaje, 'mensaje', mensaje_id, 'mensaje', now, remitente_id
+            ])
+            
+            if result.get('success'):
+                self.logger.info(f"📩 Notificación de mensaje creada para usuario {destinatario_id}")
+                return json.dumps({
+                    "success": True,
+                    "message": "Notificación de mensaje creada exitosamente"
+                })
+            else:
+                return json.dumps({"success": False, "message": f"Error creando notificación: {result.get('error')}"})
+                
+        except Exception as e:
+            self.logger.error(f"Error en create_message_notification: {e}")
+            return json.dumps({"success": False, "message": f"Error interno: {str(e)}"})
+
     def service_info(self, *args) -> str:
         """Método abstracto requerido por SOAServiceBase"""
         info_data = {
             "service": "notif",
-            "description": "Servicio de gestión de notificaciones",
-            "version": "1.0.0",
+            "description": "Servicio de gestión de notificaciones con suscripciones",
+            "version": "2.0.0",
             "database": "Cloudflare D1 (remota)",
-            "table": "NOTIFICACION",
+            "tables": ["NOTIFICACION", "SUSCRIPCION_FORO", "SUSCRIPCION_POST"],
             "authentication": "JWT Token required",
             "port": self.port,
             "host": self.host,
             "methods": list(self.methods.keys()) if hasattr(self, 'methods') else [],
             "dependencies": ["auth"],
             "permissions": {
-                "estudiante": ["list_notifications", "get_unread_count", "mark_as_read", "mark_all_as_read", "get_notification", "delete_notification", "clear_all_notifications"],
-                "moderador": ["all student permissions", "admin_list_all_notifications"]
+                "estudiante": [
+                    "list_notifications", "get_unread_count", "mark_as_read", "mark_all_as_read",
+                    "get_notification", "delete_notification", "clear_all_notifications",
+                    "subscribe_forum", "unsubscribe_forum", "subscribe_post", "unsubscribe_post",
+                    "list_forum_subscriptions", "list_post_subscriptions"
+                ],
+                "moderador": ["all student permissions", "admin_list_all_notifications"],
+                "servicios": ["create_post_notification", "create_comment_notification", "create_message_notification"]
             },
-            "notification_types": ["mensaje", "reporte", "foro", "post", "comentario", "evento", "sistema"]
+            "notification_types": ["mensaje", "foro", "post", "comentario"],
+            "subscription_features": {
+                "forum_subscriptions": "Usuarios se suscriben a foros para recibir notificaciones de nuevos posts",
+                "post_subscriptions": "Usuarios se suscriben a posts para recibir notificaciones de nuevos comentarios",
+                "auto_notifications": "Notificaciones automáticas para mensajes directos"
+            }
         }
         return json.dumps(info_data)
 
