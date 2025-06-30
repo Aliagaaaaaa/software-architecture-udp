@@ -43,18 +43,18 @@ export function StatsPage() {
       <AppSidebar variant="inset" user={user} />
       <SidebarInset>
         <SiteHeader />
-        <div className="flex flex-col gap-6 p-6">
-          <Card>
-            <CardHeader>
+    <div className="flex flex-col gap-6 p-6">
+      <Card>
+        <CardHeader>
               <CardTitle>Estadísticas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">
                 Aquí se mostrarán las estadísticas del foro y del sistema.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+          </p>
+        </CardContent>
+      </Card>
+    </div>
       </SidebarInset>
     </SidebarProvider>
   )

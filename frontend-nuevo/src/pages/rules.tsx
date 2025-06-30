@@ -43,18 +43,18 @@ export function RulesPage() {
       <AppSidebar variant="inset" user={user} />
       <SidebarInset>
         <SiteHeader />
-        <div className="flex flex-col gap-6 p-6">
-          <Card>
-            <CardHeader>
+    <div className="flex flex-col gap-6 p-6">
+      <Card>
+        <CardHeader>
               <CardTitle>Reglas del Foro</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">
                 Aquí se mostrarán las reglas y normas de convivencia del foro.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+          </p>
+        </CardContent>
+      </Card>
+    </div>
       </SidebarInset>
     </SidebarProvider>
   )

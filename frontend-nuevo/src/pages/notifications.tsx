@@ -264,7 +264,7 @@ export function NotificationsPage() {
       <AppSidebar variant="inset" user={user} />
       <SidebarInset>
         <SiteHeader user={user} />
-        <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6 p-6">
           
           {/* Header con contadores */}
           <div className="flex justify-between items-center">
@@ -460,7 +460,7 @@ export function NotificationsPage() {
               </div>
 
               {postSubscriptions.length === 0 ? (
-                <Card>
+      <Card>
                   <CardContent className="text-center py-8">
                     <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                     <p className="text-muted-foreground">No estás suscrito a ningún post</p>
@@ -489,7 +489,7 @@ export function NotificationsPage() {
                             Desuscribirse
                           </Button>
                         </div>
-                      </CardHeader>
+        </CardHeader>
                       <CardContent className="pt-0">
                         <p className="text-sm text-muted-foreground">
                           Suscrito desde: {formatDate(subscription.fecha_suscripcion)}
@@ -502,14 +502,14 @@ export function NotificationsPage() {
                         >
                           Ver post →
                         </Button>
-                      </CardContent>
-                    </Card>
+        </CardContent>
+      </Card>
                   ))}
                 </div>
               )}
             </TabsContent>
           </Tabs>
-        </div>
+    </div>
       </SidebarInset>
     </SidebarProvider>
   )

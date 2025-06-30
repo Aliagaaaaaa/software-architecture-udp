@@ -253,15 +253,26 @@ class PostService(SOAServiceBase):
             result = self.db_client.execute_query(query, [contenido, now, id_foro_int, autor_id, now, now])
             
             if result.get('success'):
+                # Obtener el ID del post recién creado
+                post_id = result.get('lastrowid')
+                if not post_id:
+                    # Fallback: buscar el último post creado por este usuario
+                    last_post_query = "SELECT id_post FROM POST WHERE autor_id = ? ORDER BY id_post DESC LIMIT 1"
+                    last_post_result = self.db_client.execute_query(last_post_query, [autor_id])
+                    if last_post_result.get('success') and last_post_result.get('results'):
+                        post_data = last_post_result['results'][0]
+                        post_id = post_data.get('id_post') if isinstance(post_data, dict) else post_data[0]
+                
                 # Obtener información del autor
                 user_info = self._get_user_by_id(autor_id)
                 autor_email = user_info['user']['email'] if user_info.get('success') else 'Desconocido'
                 
-                self.logger.info(f"💬 Post creado en foro {id_foro_int} por {autor_email}")
+                self.logger.info(f"💬 Post creado en foro {id_foro_int} por {autor_email} con ID {post_id}")
                 return json.dumps({
                     "success": True, 
                     "message": "Post creado exitosamente",
                     "post": {
+                        "id_post": post_id,
                         "contenido": contenido,
                         "id_foro": id_foro_int,
                         "autor_id": autor_id,

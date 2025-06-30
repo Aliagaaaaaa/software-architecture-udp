@@ -245,15 +245,26 @@ class CommentService(SOAServiceBase):
             result = self.db_client.execute_query(query, [contenido, now, id_post_int, autor_id, now, now])
             
             if result.get('success'):
+                # Obtener el ID del comentario recién creado
+                comment_id = result.get('lastrowid')
+                if not comment_id:
+                    # Fallback: buscar el último comentario creado por este usuario
+                    last_comment_query = "SELECT id_comentario FROM COMENTARIO WHERE autor_id = ? ORDER BY id_comentario DESC LIMIT 1"
+                    last_comment_result = self.db_client.execute_query(last_comment_query, [autor_id])
+                    if last_comment_result.get('success') and last_comment_result.get('results'):
+                        comment_data = last_comment_result['results'][0]
+                        comment_id = comment_data.get('id_comentario') if isinstance(comment_data, dict) else comment_data[0]
+                
                 # Obtener información del autor
                 user_info = self._get_user_by_id(autor_id)
                 autor_email = user_info['user']['email'] if user_info.get('success') else 'Desconocido'
                 
-                self.logger.info(f"💬 Comentario creado en post {id_post_int} por {autor_email}")
+                self.logger.info(f"💬 Comentario creado en post {id_post_int} por {autor_email} con ID {comment_id}")
                 return json.dumps({
                     "success": True, 
                     "message": "Comentario creado exitosamente",
                     "comment": {
+                        "id_comentario": comment_id,
                         "contenido": contenido,
                         "id_post": id_post_int,
                         "autor_id": autor_id,

@@ -236,20 +236,33 @@ class MessageService(SOAServiceBase):
             result = self.db_client.execute_query(query, [contenido, now, emisor_id, receptor_id])
             
             if result.get('success'):
+                # Obtener el ID del mensaje recién creado
+                message_id = result.get('lastrowid')
+                if not message_id:
+                    # Fallback: buscar el último mensaje creado por este usuario
+                    last_message_query = "SELECT id_mensaje FROM MENSAJE WHERE emisor_id = ? ORDER BY id_mensaje DESC LIMIT 1"
+                    last_message_result = self.db_client.execute_query(last_message_query, [emisor_id])
+                    if last_message_result.get('success') and last_message_result.get('results'):
+                        message_data = last_message_result['results'][0]
+                        message_id = message_data.get('id_mensaje') if isinstance(message_data, dict) else message_data[0]
+                
                 # Obtener información del emisor
                 emisor_info = self._get_user_by_id(emisor_id)
                 emisor_email = emisor_info['user']['email'] if emisor_info.get('success') else 'Desconocido'
                 
-                self.logger.info(f"💬 Mensaje enviado de {emisor_email} a {email_receptor}")
+                self.logger.info(f"💬 Mensaje enviado de {emisor_email} a {email_receptor} con ID {message_id}")
                 
                 return json.dumps({
                     "success": True, 
                     "message": "Mensaje enviado exitosamente",
-                    "message_data": {
+                    "message": {
+                        "id_mensaje": message_id,
                         "contenido": contenido,
                         "fecha": now,
                         "emisor_email": emisor_email,
-                        "receptor_email": email_receptor
+                        "receptor_email": email_receptor,
+                        "emisor_id": emisor_id,
+                        "receptor_id": receptor_id
                     }
                 })
             else:

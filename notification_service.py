@@ -1078,10 +1078,10 @@ class NotificationService(SOAServiceBase):
         try:
             params = self._parse_quoted_params(params_str)
             if len(params) < 4:
-                return json.dumps({"success": False, "message": "Parámetros requeridos: token destinatario_id mensaje_id preview_contenido"})
+                return json.dumps({"success": False, "message": "Parámetros requeridos: token destinatario_email mensaje_id preview_contenido"})
             
             token = params[0]
-            destinatario_id = params[1]
+            destinatario_email = params[1]
             mensaje_id = params[2]
             preview_contenido = params[3]
             
@@ -1094,12 +1094,15 @@ class NotificationService(SOAServiceBase):
             remitente_id = user_payload.get('id_usuario')
             remitente_email = user_payload.get('email')
             
-            # Verificar que el destinatario existe
-            check_user_query = "SELECT email FROM USUARIO WHERE id_usuario = ?"
-            user_result = self.db_client.execute_query(check_user_query, [destinatario_id])
+            # Obtener ID del destinatario por email
+            check_user_query = "SELECT id_usuario FROM USUARIO WHERE email = ?"
+            user_result = self.db_client.execute_query(check_user_query, [destinatario_email])
             
             if not user_result.get('success') or not user_result.get('results'):
                 return json.dumps({"success": False, "message": "Destinatario no encontrado"})
+            
+            user_data = user_result['results'][0]
+            destinatario_id = user_data.get('id_usuario') if isinstance(user_data, dict) else user_data[0]
             
             # Crear notificación
             from datetime import datetime
