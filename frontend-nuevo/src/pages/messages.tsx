@@ -63,8 +63,11 @@ export default function Messages() {
   const [newMessageContent, setNewMessageContent] = useState("")
   const [editCommentContent, setEditCommentContent] = useState("")
   const [conversationEmail, setConversationEmail] = useState("")
+  const [newConversationMessage, setNewConversationMessage] = useState('')
+  const [sendingConversationMessage, setSendingConversationMessage] = useState(false)
   const [loading, setLoading] = useState(false)
   const socketRef = useRef<WebSocket | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const navigate = useNavigate()
 
   const loadSentMessages = () => {
@@ -107,11 +110,13 @@ export default function Messages() {
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       try {
         const message = buildServiceMessage("MSGES", "list_conversation", otherUserEmail)
-        console.log("📤 Enviando mensaje:", message)
+        console.log("📤 Enviando mensaje de conversación:", message)
         socketRef.current.send(message)
       } catch (err) {
         console.error("Error building message:", err)
       }
+    } else {
+      console.error("❌ WebSocket no está conectado para cargar conversación")
     }
   }
 
@@ -224,16 +229,30 @@ export default function Messages() {
       }
 
       // Respuesta de conversación específica
-      if (event.data.includes("MSGESOK") && event.data.includes("Conversación con")) {
+      if (event.data.includes("MSGESOK") && (event.data.includes("Conversación con") || event.data.includes("Conversaci\\u00f3n con"))) {
+        console.log("📨 Respuesta de conversación detectada:", event.data)
         try {
           const msgesOkIndex = event.data.indexOf("MSGESOK")
           const jsonString = event.data.slice(msgesOkIndex + "MSGESOK".length)
+          console.log("🔍 JSON de conversación:", jsonString)
           const json = JSON.parse(jsonString)
           
           if (json.success && json.messages) {
+            console.log("✅ Configurando conversación:", json.other_user, "con", json.messages.length, "mensajes")
             setConversationMessages(json.messages)
             setSelectedConversation(json.other_user)
             setIsConversationDialogOpen(true)
+            console.log("🎯 Estado del diálogo:", {
+              isOpen: true,
+              selectedConversation: json.other_user,
+              messagesCount: json.messages.length
+            })
+            // Scroll to bottom after messages load
+            setTimeout(() => {
+              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+            }, 100)
+          } else {
+            console.error("❌ Datos de conversación inválidos:", json)
           }
         } catch (err) {
           console.error("Error al parsear conversación:", err)
@@ -370,8 +389,78 @@ export default function Messages() {
   }
 
   const handleViewConversation = (otherUserEmail: string) => {
+    console.log("🔍 Ver conversación con:", otherUserEmail)
     setConversationEmail(otherUserEmail)
     loadConversation(otherUserEmail)
+  }
+
+  const handleSendConversationMessage = async () => {
+    if (!newConversationMessage.trim() || !selectedConversation || sendingConversationMessage) {
+      return
+    }
+
+    setSendingConversationMessage(true)
+    
+    try {
+      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+        const messageContent = newConversationMessage.trim()
+        const message = buildServiceMessage("MSGES", "send_message", selectedConversation, `'${messageContent}'`)
+        console.log("📤 Enviando mensaje en conversación:", message)
+        socketRef.current.send(message)
+        
+        // Escuchar la respuesta para obtener el ID del mensaje y enviar notificación
+        const originalOnMessage = socketRef.current.onmessage
+        socketRef.current.onmessage = (event) => {
+          console.log("📨 Respuesta de envío:", event.data)
+          
+          if (event.data.includes("MSGESOK") && event.data.includes("enviado exitosamente")) {
+            try {
+              const msgesOkIndex = event.data.indexOf("MSGESOK")
+              const jsonString = event.data.slice(msgesOkIndex + "MSGESOK".length)
+              const response = JSON.parse(jsonString)
+              
+              if (response.success && response.message && response.message.id_mensaje) {
+                console.log("✅ Mensaje enviado con ID:", response.message.id_mensaje)
+                
+                // Enviar notificación
+                const token = localStorage.getItem("token")
+                if (token) {
+                  const messagePreview = messageContent.length > 50 ? 
+                    messageContent.substring(0, 50) + '...' : messageContent
+                  
+                  const notificationMessage = `NOTIFcreate_message_notification ${token} ${selectedConversation} ${response.message.id_mensaje} '${messagePreview}'`
+                  console.log("📤 Enviando notificación:", notificationMessage)
+                  socketRef.current?.send(notificationMessage)
+                }
+                
+                // Recargar la conversación después de un breve delay
+                setTimeout(() => {
+                  loadConversation(selectedConversation)
+                  // Scroll to bottom after sending message
+                  setTimeout(() => {
+                    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+                  }, 200)
+                }, 500)
+              }
+            } catch (err) {
+              console.error("Error parseando respuesta de mensaje:", err)
+            }
+          }
+          
+          // Restaurar el handler original
+          if (originalOnMessage) {
+            socketRef.current!.onmessage = originalOnMessage
+          }
+        }
+        
+        // Limpiar el input
+        setNewConversationMessage('')
+      }
+    } catch (err) {
+      console.error("Error enviando mensaje en conversación:", err)
+    } finally {
+      setSendingConversationMessage(false)
+    }
   }
 
   const canDeleteMessage = (message: Message) => {
@@ -535,63 +624,173 @@ export default function Messages() {
 
               {/* Dialog para ver conversación completa */}
               <Dialog open={isConversationDialogOpen} onOpenChange={setIsConversationDialogOpen}>
-                <DialogContent className="max-w-4xl max-h-[80vh]">
-                  <DialogHeader>
-                    <DialogTitle>Conversación con {selectedConversation}</DialogTitle>
-                    <DialogDescription>
-                      Historial completo de mensajes
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="max-h-96 overflow-y-auto space-y-3">
-                    {conversationMessages.map((msg) => (
-                      <div
-                        key={msg.id_mensaje}
-                        className={`flex ${msg.is_sent ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <Card className={`max-w-[70%] ${
-                          msg.is_sent 
-                            ? 'bg-blue-50 border-l-4 border-l-blue-500' 
-                            : 'bg-gray-50 border-l-4 border-l-gray-500'
-                        }`}>
-                          <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <User className="h-3 w-3" />
-                                <span className="font-medium">
-                                  {msg.is_sent ? 'Tú' : msg.emisor_email}
-                                </span>
-                                <Calendar className="h-3 w-3" />
-                                <span>{new Date(msg.fecha).toLocaleString()}</span>
-                              </div>
-                              
-                              {canDeleteMessage(msg) && (
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                                      <MoreVertical className="h-3 w-3" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuItem 
-                                      onClick={() => handleDeleteMessage(msg.id_mensaje, canAdminDelete(msg))}
-                                      className="text-red-600"
-                                    >
-                                      <Trash2 className="mr-2 h-3 w-3" />
-                                      Eliminar
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              )}
-                            </div>
-                          </CardHeader>
-                          <CardContent className="pt-0">
-                            <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                              {msg.contenido}
-                            </p>
-                          </CardContent>
-                        </Card>
+                <DialogContent className="max-w-4xl h-[85vh] max-h-[85vh] p-0 w-full overflow-hidden conversation-modal">
+                  <div className="flex flex-col h-full w-full">
+                    {/* Header */}
+                    <DialogHeader className="px-6 py-4 border-b bg-gradient-to-r from-blue-50 to-purple-50 flex-shrink-0">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
+                          {selectedConversation?.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <DialogTitle className="text-lg font-semibold text-gray-900 truncate">
+                            {selectedConversation}
+                          </DialogTitle>
+                          <DialogDescription className="text-sm text-gray-600">
+                            {conversationMessages.length} mensaje{conversationMessages.length !== 1 ? 's' : ''} en total
+                          </DialogDescription>
+                        </div>
                       </div>
-                    ))}
+                    </DialogHeader>
+
+                    {/* Messages Container */}
+                    <div className="flex-1 p-4 overflow-hidden" style={{ height: 'calc(85vh - 280px)', maxHeight: 'calc(85vh - 280px)' }}>
+                      <div className="h-full overflow-y-auto overflow-x-hidden space-y-4 pr-2 custom-scrollbar">
+                        {conversationMessages.length > 0 ? (
+                          conversationMessages.map((msg, index) => (
+                            <div
+                              key={msg.id_mensaje}
+                              className={`flex w-full ${msg.is_sent ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2`}
+                              style={{ animationDelay: `${index * 50}ms` }}
+                            >
+                              <div className={`max-w-[75%] min-w-0 ${msg.is_sent ? 'ml-auto' : 'mr-auto'}`}>
+                                {/* Message bubble */}
+                                <div className={`relative rounded-2xl p-4 shadow-sm break-words ${
+                                  msg.is_sent 
+                                    ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white' 
+                                    : 'bg-white border border-gray-200 text-gray-900'
+                                }`}>
+                                  {/* Message content */}
+                                  <p className="text-sm leading-relaxed whitespace-pre-wrap break-words word-wrap overflow-wrap-anywhere">
+                                    {msg.contenido}
+                                  </p>
+                                  
+                                  {/* Message tail */}
+                                  <div className={`absolute top-3 w-3 h-3 transform rotate-45 ${
+                                    msg.is_sent 
+                                      ? 'right-[-6px] bg-blue-500' 
+                                      : 'left-[-6px] bg-white border-l border-t border-gray-200'
+                                  }`} />
+                                </div>
+
+                                {/* Message info */}
+                                <div className={`flex items-center gap-2 mt-1 px-2 flex-wrap ${
+                                  msg.is_sent ? 'justify-end' : 'justify-start'
+                                }`}>
+                                  <span className="text-xs text-gray-500 flex-shrink-0">
+                                    {msg.is_sent ? 'Tú' : msg.emisor_email?.split('@')[0]}
+                                  </span>
+                                  <span className="text-xs text-gray-400 flex-shrink-0">•</span>
+                                  <span className="text-xs text-gray-500 flex-shrink-0">
+                                    {new Date(msg.fecha).toLocaleString('es-ES', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </span>
+                                  {canDeleteMessage(msg) && (
+                                    <>
+                                      <span className="text-xs text-gray-400 flex-shrink-0">•</span>
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            className="h-6 w-6 p-0 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+                                          >
+                                            <MoreVertical className="h-3 w-3" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                          <DropdownMenuItem 
+                                            onClick={() => handleDeleteMessage(msg.id_mensaje, canAdminDelete(msg))}
+                                            className="text-red-600 focus:text-red-700"
+                                          >
+                                            <Trash2 className="mr-2 h-3 w-3" />
+                                            Eliminar
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="flex items-center justify-center h-full">
+                            <div className="text-center text-gray-500">
+                              <MessageSquare className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                              <p className="text-sm">No hay mensajes en esta conversación</p>
+                            </div>
+                          </div>
+                        )}
+                        {/* Invisible div for scrolling to bottom */}
+                        <div ref={messagesEndRef} />
+                      </div>
+                    </div>
+
+                    {/* Message Input */}
+                    <div className="px-6 py-4 border-t bg-white flex-shrink-0">
+                      <div className="flex items-end gap-3">
+                        <div className="flex-1 min-w-0">
+                          <Textarea
+                            value={newConversationMessage}
+                            onChange={(e) => setNewConversationMessage(e.target.value)}
+                            placeholder={`Escribe un mensaje a ${selectedConversation}...`}
+                            className="min-h-[80px] max-h-[120px] resize-none border-gray-200 focus:border-blue-500 focus:ring-blue-500 w-full"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault()
+                                handleSendConversationMessage()
+                              }
+                            }}
+                          />
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="text-xs text-gray-500">
+                              Presiona Enter para enviar, Shift+Enter para nueva línea
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              {newConversationMessage.length}/1000
+                            </span>
+                          </div>
+                        </div>
+                        <Button 
+                          onClick={handleSendConversationMessage}
+                          disabled={!newConversationMessage.trim() || sendingConversationMessage}
+                          className="h-[80px] px-6 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium flex-shrink-0"
+                        >
+                          {sendingConversationMessage ? (
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              <span>Enviando...</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <Send className="h-4 w-4" />
+                              <span>Enviar</span>
+                            </div>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-6 py-3 border-t bg-gray-50 flex-shrink-0">
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs text-gray-500">
+                          Conversación con {selectedConversation}
+                        </div>
+                        <Button 
+                          onClick={() => setIsConversationDialogOpen(false)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          Cerrar
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </DialogContent>
               </Dialog>
@@ -684,7 +883,14 @@ export default function Messages() {
                                         <span>Último: {new Date(conv.last_message_date).toLocaleDateString()}</span>
                                       </div>
                                     </div>
-                                    <Button variant="ghost" size="sm">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleViewConversation(conv.other_user)
+                                      }}
+                                    >
                                       <Eye className="h-4 w-4" />
                                       Ver conversación
                                     </Button>
