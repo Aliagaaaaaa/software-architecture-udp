@@ -499,22 +499,30 @@ class ForumService(SOAServiceBase):
                 updated_result = self.db_client.execute_query(get_updated_query, [id_foro])
                 
                 if updated_result.get('success') and updated_result.get('results'):
-                    forum_data = updated_result['results'][0]
-                    if isinstance(forum_data, dict):
-                        creador_id = forum_data.get('creador_id')
-                        titulo = forum_data.get('titulo')
+                    row = updated_result['results'][0]
+
+                    if isinstance(row, dict):
+                        forum = {
+                            "id_foro": row.get("id_foro"),
+                            "titulo": row.get("titulo"),
+                            "categoria": row.get("categoria"),
+                            "creador_id": row.get("creador_id"),
+                            "created_at": row.get("created_at"),
+                            "updated_at": row.get("updated_at"),
+                            "creador_email": row.get("creador_email") or 'Desconocido'
+                        }
                     else:
-                        creador_id = forum_data[0]
-                        titulo = forum_data[1]
-                    forum = {
-                        "id_foro": forum_data[0],
-                        "titulo": forum_data[1],
-                        "categoria": forum_data[2],
-                        "creador_id": creador_id,
-                        "created_at": forum_data[4],
-                        "updated_at": forum_data[5],
-                        "creador_email": forum_data[6] or 'Desconocido'
-                    }
+                        # Fallback para formato tuple
+                        forum = {
+                            "id_foro": row[0],
+                            "titulo": row[1],
+                            "categoria": row[2],
+                            "creador_id": row[3],
+                            "created_at": row[4],
+                            "updated_at": row[5],
+                            "creador_email": row[6] or 'Desconocido'
+                        }
+                    titulo = forum["titulo"]
                     
                     self.logger.info(f"📝 Foro actualizado: {titulo} por {user_payload.get('email')}")
                     return json.dumps({

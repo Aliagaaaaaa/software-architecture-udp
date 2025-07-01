@@ -188,7 +188,7 @@ export function CrearReporte() {
       }
 
       // Respuesta de lista de moderadores
-      if (event.data.includes("PROFSOK") && event.data.includes("moderadores encontrados")) {
+      if (event.data.includes("PROFSOK") && event.data.includes("moderadores")) {
         try {
           const profsOkIndex = event.data.indexOf("PROFSOK")
           const jsonString = event.data.slice(profsOkIndex + "PROFSOK".length)

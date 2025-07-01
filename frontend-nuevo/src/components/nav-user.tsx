@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/hooks/useAuth"
+import { useState, useEffect } from "react"
 
 type NavUserProps = {
   user: {
@@ -36,7 +37,46 @@ type NavUserProps = {
 export function NavUser({ user }: NavUserProps) {
   const navigate = useNavigate()
   const { logout } = useAuth()
-  const avatarUrl = user?.avatar ?? "/avatars/default.jpg"
+  const [avatarUrl, setAvatarUrl] = useState<string>(user?.avatar ?? "/avatars/default.jpg")
+
+  // Si no tenemos avatar en el token, intentar obtenerlo desde el perfil
+  useEffect(() => {
+    if (user?.avatar) return // ya tenemos avatar
+
+    const token = localStorage.getItem("token")
+    if (!token) return
+
+    const socket = new WebSocket("ws://4.228.228.99:3001")
+
+    socket.onopen = () => {
+      socket.send(`PROFSget_profile ${token}`)
+    }
+
+    socket.onmessage = (event) => {
+      if (event.data.includes("PROFSOK")) {
+        try {
+          const idx = event.data.indexOf("PROFSOK")
+          const jsonStr = event.data.slice(idx + "PROFSOK".length)
+          const json = JSON.parse(jsonStr)
+          if (json.success && json.profile && json.profile.avatar) {
+            setAvatarUrl(json.profile.avatar)
+          }
+        } catch {
+          /* ignore parse errors */
+        }
+        socket.close()
+      }
+      if (event.data.includes("PROFSNK")) {
+        socket.close()
+      }
+    }
+
+    socket.onerror = () => socket.close()
+
+    return () => {
+      if (socket.readyState === WebSocket.OPEN) socket.close()
+    }
+  }, [user?.avatar])
 
   const handleLogout = () => {
     logout()
