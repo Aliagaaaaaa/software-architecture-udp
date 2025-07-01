@@ -575,7 +575,47 @@ class ForumService(SOAServiceBase):
             if user_id != creador_id and user_rol != 'moderador':
                 return json.dumps({"success": False, "message": "No tienes permisos para eliminar este foro"})
             
-            # Eliminar foro
+            # Eliminar reportes relacionados con comentarios o posts de este foro
+            delete_reports_sql_post = """
+            DELETE FROM REPORTE 
+            WHERE tipo_contenido = 'post' 
+            AND contenido_id IN (SELECT id_post FROM POST WHERE id_foro = ?)
+            """
+            self.db_client.execute_query(delete_reports_sql_post, [id_foro])
+
+            delete_reports_sql_comment = """
+            DELETE FROM REPORTE 
+            WHERE tipo_contenido = 'comentario' 
+            AND contenido_id IN (
+                SELECT id_comentario FROM COMENTARIO 
+                WHERE id_post IN (SELECT id_post FROM POST WHERE id_foro = ?)
+            )
+            """
+            self.db_client.execute_query(delete_reports_sql_comment, [id_foro])
+
+            # Eliminar comentarios de los posts de este foro
+            cascade_comments_sql = """
+            DELETE FROM COMENTARIO 
+            WHERE id_post IN (SELECT id_post FROM POST WHERE id_foro = ?)
+            """
+            self.db_client.execute_query(cascade_comments_sql, [id_foro])
+
+            # Eliminar posts del foro
+            cascade_posts_sql = "DELETE FROM POST WHERE id_foro = ?"
+            self.db_client.execute_query(cascade_posts_sql, [id_foro])
+
+            # Eliminar suscripciones de posts pertenecientes al foro
+            delete_sub_post_sql = """
+            DELETE FROM SUSCRIPCION_POST 
+            WHERE post_id IN (SELECT id_post FROM POST WHERE id_foro = ?)
+            """
+            self.db_client.execute_query(delete_sub_post_sql, [id_foro])
+
+            # Eliminar suscripciones al foro
+            delete_sub_forum_sql = "DELETE FROM SUSCRIPCION_FORO WHERE foro_id = ?"
+            self.db_client.execute_query(delete_sub_forum_sql, [id_foro])
+
+            # Finalmente eliminar el foro
             delete_query = "DELETE FROM FORO WHERE id_foro = ?"
             result = self.db_client.execute_query(delete_query, [id_foro])
             
