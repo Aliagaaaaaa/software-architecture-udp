@@ -87,7 +87,7 @@ export function LoginForm({
     }
 
     return () => socket.close()
-  }, [navigate, updateToken, authLoading, email])
+  }, [navigate, updateToken, authLoading])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()

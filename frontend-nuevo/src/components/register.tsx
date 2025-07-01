@@ -1,6 +1,7 @@
 "use client"
 
 import { useRef, useState, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -20,6 +21,7 @@ export function Register({ className, ...props }: React.ComponentProps<"div">) {
   const [response, setResponse] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const socketRef = useRef<WebSocket | null>(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
     const socket = new WebSocket("ws://4.228.228.99:3001")
@@ -131,6 +133,19 @@ export function Register({ className, ...props }: React.ComponentProps<"div">) {
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Registrando..." : "Registrarse"}
             </Button>
+            <div className="text-center">
+              <span className="text-sm text-muted-foreground">
+                ¿Ya tienes una cuenta?{" "}
+              </span>
+              <Button
+                type="button"
+                variant="link"
+                className="p-0 h-auto text-sm"
+                onClick={() => navigate("/login")}
+              >
+                Iniciar sesión
+              </Button>
+            </div>
             {response && (
               <div className="text-sm text-muted-foreground text-center">
                 {(() => {
