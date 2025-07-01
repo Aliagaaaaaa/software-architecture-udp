@@ -621,6 +621,62 @@ class ProfileService(SOAServiceBase):
             "profiles": profiles
         })
 
+    def service_list_moderators(self, token: str) -> str:
+        """
+        Lista todos los moderadores del sistema (solo moderadores)
+        
+        Parámetros:
+            token: Token JWT del moderador autenticado
+        
+        Retorna:
+            JSON con lista de moderadores (email y nombre)
+        """
+        self.logger.info("Solicitud de listado de moderadores")
+        
+        # Verificar token y obtener información del usuario
+        user_info = self._get_user_info_from_token(token)
+        if not user_info:
+            return json.dumps({
+                "success": False,
+                "message": "Token inválido o expirado"
+            })
+        
+        # Verificar permisos (solo moderadores)
+        if user_info["rol"] != "moderador":
+            return json.dumps({
+                "success": False,
+                "message": "Acceso denegado. Solo los moderadores pueden listar otros moderadores."
+            })
+        
+        try:
+            # Obtener todos los moderadores activos
+            moderators = self.db.fetch_all('''
+                SELECT email, name FROM USUARIO 
+                WHERE rol = 'moderador' AND is_active = 1
+                ORDER BY name, email
+            ''')
+            
+            # Formatear la respuesta
+            moderators_list = []
+            for mod in moderators:
+                moderators_list.append({
+                    "email": mod.get("email"),
+                    "name": mod.get("name") or mod.get("email").split("@")[0]  # Usar email como nombre si no hay nombre
+                })
+            
+            return json.dumps({
+                "success": True,
+                "message": f"Se encontraron {len(moderators_list)} moderadores",
+                "moderators": moderators_list
+            })
+            
+        except Exception as e:
+            self.logger.error(f"Error obteniendo lista de moderadores: {e}")
+            return json.dumps({
+                "success": False,
+                "message": "Error interno del servidor al obtener moderadores"
+            })
+
     def service_admin_get_profile(self, token: str, email: str) -> str:
         """
         Obtiene el perfil de cualquier usuario (solo moderadores)

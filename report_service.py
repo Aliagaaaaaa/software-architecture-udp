@@ -634,6 +634,102 @@ class ReportService(SOAServiceBase):
             self.logger.error(f"Error en admin_delete_report: {e}")
             return json.dumps({"success": False, "message": f"Error interno: {str(e)}"})
 
+    def service_assign_moderation_task(self, params_str: str) -> str:
+        """Asigna una tarea de moderación a otro moderador"""
+        try:
+            params = self._parse_quoted_params(params_str)
+            if len(params) < 4:
+                return json.dumps({"success": False, "message": "Parámetros requeridos: token id_reporte 'moderator_email' 'comment'"})
+            
+            token = params[0]
+            id_reporte = params[1]
+            moderator_email = params[2]
+            comment = params[3] if len(params) > 3 else "Sin comentarios adicionales"
+            
+            # Verificar token
+            token_result = self._verify_token(token)
+            if not token_result.get('success'):
+                return json.dumps({"success": False, "message": token_result.get('message')})
+            
+            user_payload = token_result['payload']
+            user_id = user_payload.get('id_usuario')
+            user_rol = user_payload.get('rol')
+            user_email = user_payload.get('email')
+            
+            # Solo moderadores pueden asignar tareas
+            if user_rol != 'moderador':
+                return json.dumps({"success": False, "message": "Solo los moderadores pueden asignar tareas de moderación"})
+            
+            # Verificar que el reporte existe y está pendiente
+            check_query = """
+            SELECT estado, contenido_id, tipo_contenido, razon, reportado_por 
+            FROM REPORTE WHERE id_reporte = ?
+            """
+            check_result = self.db_client.execute_query(check_query, [id_reporte])
+            
+            if not check_result.get('success') or not check_result.get('results'):
+                return json.dumps({"success": False, "message": "Reporte no encontrado"})
+            
+            report_data = check_result['results'][0]
+            fields = self._extract_db_fields(report_data, ['estado', 'contenido_id', 'tipo_contenido', 'razon', 'reportado_por'])
+            estado, contenido_id, tipo_contenido, razon, reportado_por = fields
+            
+            if estado != 'pendiente':
+                return json.dumps({"success": False, "message": "Solo se pueden asignar reportes con estado 'pendiente'"})
+            
+            # Verificar que el moderador objetivo existe
+            moderator_query = "SELECT id_usuario, rol FROM USUARIO WHERE email = ?"
+            moderator_result = self.db_client.execute_query(moderator_query, [moderator_email])
+            
+            if not moderator_result.get('success') or not moderator_result.get('results'):
+                return json.dumps({"success": False, "message": "Moderador objetivo no encontrado"})
+            
+            moderator_data = moderator_result['results'][0]
+            moderator_fields = self._extract_db_fields(moderator_data, ['id_usuario', 'rol'])
+            moderator_id, moderator_rol = moderator_fields
+            
+            if moderator_rol != 'moderador':
+                return json.dumps({"success": False, "message": "El usuario objetivo no es un moderador"})
+            
+            # No permitir asignarse a sí mismo
+            if moderator_email == user_email:
+                return json.dumps({"success": False, "message": "No puedes asignarte una tarea a ti mismo"})
+            
+            # Crear registro de asignación (actualizar el reporte con el moderador asignado)
+            now = datetime.now().isoformat()
+            update_query = """
+            UPDATE REPORTE 
+            SET revisado_por = ?, fecha_revision = ?
+            WHERE id_reporte = ?
+            """
+            
+            result = self.db_client.execute_query(update_query, [moderator_id, now, id_reporte])
+            
+            if result.get('success'):
+                self.logger.info(f"📋 Tarea de moderación {id_reporte} asignada de {user_email} a {moderator_email}")
+                return json.dumps({
+                    "success": True,
+                    "message": "Tarea de moderación asignada exitosamente",
+                    "assignment": {
+                        "id_reporte": int(id_reporte),
+                        "assigned_to": moderator_email,
+                        "assigned_by": user_email,
+                        "comment": comment,
+                        "fecha_asignacion": now,
+                        "report_details": {
+                            "contenido_id": contenido_id,
+                            "tipo_contenido": tipo_contenido,
+                            "razon": razon
+                        }
+                    }
+                })
+            else:
+                return json.dumps({"success": False, "message": f"Error asignando tarea: {result.get('error')}"})
+                
+        except Exception as e:
+            self.logger.error(f"Error en assign_moderation_task: {e}")
+            return json.dumps({"success": False, "message": f"Error interno: {str(e)}"})
+
     def service_info(self, *args) -> str:
         """Método abstracto requerido por SOAServiceBase"""
         info_data = {
@@ -649,7 +745,7 @@ class ReportService(SOAServiceBase):
             "dependencies": ["auth", "post", "comm"],
             "permissions": {
                 "estudiante": ["create_report", "list_my_reports", "delete_report (own)"],
-                "moderador": ["all student permissions", "get_report", "list_reports", "update_report_status", "admin_delete_report"]
+                "moderador": ["all student permissions", "get_report", "list_reports", "update_report_status", "admin_delete_report", "assign_moderation_task"]
             },
             "content_types": ["post", "comentario"],
             "report_states": ["pendiente", "revisado", "resuelto", "descartado"]

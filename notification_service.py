@@ -1357,6 +1357,93 @@ class NotificationService(SOAServiceBase):
             self.logger.error(f"Error en create_report_notification: {e}")
             return json.dumps({"success": False, "message": f"Error interno: {str(e)}"})
 
+    def service_assign_moderation_task_notification(self, params_str: str) -> str:
+        """Crea notificación cuando se asigna una tarea de moderación"""
+        try:
+            params = self._parse_quoted_params(params_str)
+            if len(params) < 6:
+                return json.dumps({
+                    "success": False, 
+                    "message": "Parámetros requeridos: token 'moderator_email' report_id 'content_type' content_id 'comment'"
+                })
+            
+            token = params[0]
+            moderator_email = params[1]
+            report_id = params[2]
+            content_type = params[3]
+            content_id = params[4]
+            comment = params[5] if len(params) > 5 else "Sin comentarios adicionales"
+            
+            # Verificar token
+            token_result = self._verify_token(token)
+            if not token_result.get('success'):
+                return json.dumps({"success": False, "message": token_result.get('message')})
+            
+            user_payload = token_result['payload']
+            assigner_email = user_payload.get('email')
+            
+            # Solo moderadores pueden asignar tareas
+            if user_payload.get('rol') != 'moderador':
+                return json.dumps({"success": False, "message": "Solo moderadores pueden asignar tareas"})
+            
+            # Obtener ID del moderador objetivo
+            query = "SELECT id_usuario FROM USUARIO WHERE email = ?"
+            result = self.db_client.execute_query(query, [moderator_email])
+            
+            if not result.get('success') or not result.get('results'):
+                return json.dumps({"success": False, "message": "Moderador objetivo no encontrado"})
+            
+            moderator_data = result['results'][0]
+            moderator_id = moderator_data.get('id_usuario') if isinstance(moderator_data, dict) else moderator_data[0]
+            
+            # Crear el mensaje de notificación
+            content_text = "publicación" if content_type == "post" else "comentario"
+            titulo = f"Nueva tarea de moderación asignada"
+            mensaje = f"Se te ha asignado revisar un reporte sobre una {content_text} (#{content_id}). "
+            mensaje += f"Asignado por: {assigner_email}. "
+            if comment and comment != "Sin comentarios adicionales":
+                mensaje += f"Comentario: {comment}"
+            
+            # Insertar notificación
+            now = datetime.now().isoformat()
+            insert_query = """
+            INSERT INTO NOTIFICACION (usuario_id, titulo, mensaje, tipo, referencia_id, referencia_tipo, fecha, creador_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """
+            
+            insert_result = self.db_client.execute_query(insert_query, [
+                moderator_id,
+                titulo,
+                mensaje,
+                "moderation_task",
+                int(report_id),
+                "reporte",
+                now,
+                user_payload.get('id_usuario')
+            ])
+            
+            if insert_result.get('success'):
+                self.logger.info(f"📋 Notificación de tarea de moderación creada para {moderator_email} (reporte #{report_id})")
+                return json.dumps({
+                    "success": True,
+                    "message": f"Notificación de asignación enviada a {moderator_email}",
+                    "notification": {
+                        "moderator_email": moderator_email,
+                        "report_id": int(report_id),
+                        "content_type": content_type,
+                        "content_id": int(content_id),
+                        "assigned_by": assigner_email,
+                        "comment": comment,
+                        "fecha": now
+                    }
+                })
+            else:
+                return json.dumps({"success": False, "message": f"Error creando notificación: {insert_result.get('error')}"})
+                
+        except Exception as e:
+            self.logger.error(f"Error en assign_moderation_task_notification: {e}")
+            return json.dumps({"success": False, "message": f"Error interno: {str(e)}"})
+
     def service_info(self, *args) -> str:
         """Método abstracto requerido por SOAServiceBase"""
         info_data = {
@@ -1377,16 +1464,17 @@ class NotificationService(SOAServiceBase):
                     "subscribe_forum", "unsubscribe_forum", "subscribe_post", "unsubscribe_post",
                     "list_forum_subscriptions", "list_post_subscriptions"
                 ],
-                "moderador": ["all student permissions", "admin_list_all_notifications"],
-                "servicios": ["create_post_notification", "create_comment_notification", "create_message_notification", "create_event_notification", "create_report_notification"]
+                "moderador": ["all student permissions", "admin_list_all_notifications", "assign_moderation_task_notification"],
+                "servicios": ["create_post_notification", "create_comment_notification", "create_message_notification", "create_event_notification", "create_report_notification", "assign_moderation_task_notification"]
             },
-            "notification_types": ["mensaje", "foro", "post", "comentario", "evento", "reporte"],
+            "notification_types": ["mensaje", "foro", "post", "comentario", "evento", "reporte", "moderation_task"],
             "notification_features": {
                 "forum_subscriptions": "Usuarios se suscriben a foros para recibir notificaciones de nuevos posts",
                 "post_subscriptions": "Usuarios se suscriben a posts para recibir notificaciones de nuevos comentarios",
                 "message_notifications": "Notificaciones para mensajes privados",
                 "event_notifications": "Notificaciones a todos los usuarios sobre nuevos eventos",
-                "report_notifications": "Notificaciones a moderadores sobre nuevos reportes"
+                "report_notifications": "Notificaciones a moderadores sobre nuevos reportes",
+                "moderation_task_notifications": "Notificaciones a moderadores cuando se les asigna una tarea de moderación"
             }
         }
         return json.dumps(info_data)

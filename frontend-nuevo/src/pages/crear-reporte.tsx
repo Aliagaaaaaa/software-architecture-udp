@@ -13,12 +13,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar"
 import { toast } from "sonner"
-import { AlertTriangle, FileText, MessageSquare, Plus, Eye, Edit, Trash2, MoreVertical, Shield, Clock, CheckCircle, XCircle } from "lucide-react"
+import { AlertTriangle, FileText, MessageSquare, Plus, Eye, Edit, Trash2, MoreVertical, Shield, Clock, CheckCircle, XCircle, Users } from "lucide-react"
 import { RAZONES_REPORTE } from "@/lib/constants"
 
 type Report = {
@@ -51,6 +52,14 @@ export function CrearReporte() {
   const [allReports, setAllReports] = useState<Report[]>([])
   const [selectedReport, setSelectedReport] = useState<Report | null>(null)
   const [newStatus, setNewStatus] = useState("")
+
+  // Estados para asignación de tareas
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false)
+  const [assignTarget, setAssignTarget] = useState<Report | null>(null)
+  const [moderators, setModerators] = useState<Array<{email: string, name: string}>>([])
+  const [selectedModerator, setSelectedModerator] = useState("")
+  const [assignComment, setAssignComment] = useState("")
+  const [assignLoading, setAssignLoading] = useState(false)
 
   useEffect(() => {
     const token = localStorage.getItem("token")
@@ -178,9 +187,37 @@ export function CrearReporte() {
         }
       }
 
+      // Respuesta de lista de moderadores
+      if (event.data.includes("PROFSOK") && event.data.includes("moderadores encontrados")) {
+        try {
+          const profsOkIndex = event.data.indexOf("PROFSOK")
+          const jsonString = event.data.slice(profsOkIndex + "PROFSOK".length)
+          const json = JSON.parse(jsonString)
+          
+          if (json.success && json.moderators) {
+            setModerators(json.moderators)
+          }
+        } catch (err) {
+          console.error("Error al parsear moderadores:", err)
+        }
+      }
+
+      // Respuesta de asignación de tarea
+      if (event.data.includes("reprtOK") && event.data.includes("Tarea de moderación asignada exitosamente")) {
+        try {
+          toast.success("Tarea de moderación asignada exitosamente")
+          setAssignLoading(false)
+          loadAllReports() // Recargar reportes
+        } catch (err) {
+          console.error("Error al parsear asignación de tarea:", err)
+          setAssignLoading(false)
+        }
+      }
+
       if (event.data.includes("reprtNK")) {
         toast.error("Error en la operación")
         setLoading(false)
+        setAssignLoading(false)
       }
     }
 
@@ -204,6 +241,15 @@ export function CrearReporte() {
     if (token && socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       const message = `reprtlist_reports ${token}`
       console.log("📤 Cargando todos los reportes:", message)
+      socketRef.current.send(message)
+    }
+  }
+
+  const loadModerators = () => {
+    const token = localStorage.getItem("token")
+    if (token && socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      const message = `PROFSlist_moderators ${token}`
+      console.log("📤 Cargando lista de moderadores:", message)
       socketRef.current.send(message)
     }
   }
@@ -260,6 +306,51 @@ export function CrearReporte() {
     } else {
       toast.error("Error de conexión")
       setLoading(false)
+    }
+  }
+
+  const openAssignDialog = (report: Report) => {
+    setAssignTarget(report)
+    setSelectedModerator("")
+    setAssignComment("")
+    setIsAssignDialogOpen(true)
+    loadModerators()
+  }
+
+  const handleAssignTask = (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!selectedModerator.trim() || !assignTarget) {
+      toast.error("Por favor selecciona un moderador")
+      return
+    }
+
+    if (assignComment.length > 500) {
+      toast.error("El comentario no puede exceder 500 caracteres")
+      return
+    }
+
+    setAssignLoading(true)
+    const token = localStorage.getItem("token")
+    
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      const comment = assignComment.trim() || "Sin comentarios adicionales"
+      const message = `reprtassign_moderation_task ${token} ${assignTarget.id_reporte} '${selectedModerator}' '${comment}'`
+      console.log("📤 Asignando tarea de moderación:", message)
+      socketRef.current.send(message)
+      
+      // Enviar notificación al moderador asignado
+      const notificationMessage = `NOTIFassign_moderation_task_notification ${token} '${selectedModerator}' ${assignTarget.id_reporte} '${assignTarget.tipo_contenido}' ${assignTarget.contenido_id} '${comment}'`
+      console.log("📤 Enviando notificación de asignación:", notificationMessage)
+      socketRef.current.send(notificationMessage)
+      
+      setIsAssignDialogOpen(false)
+      setSelectedModerator("")
+      setAssignComment("")
+      setAssignTarget(null)
+    } else {
+      toast.error("Error de conexión")
+      setAssignLoading(false)
     }
   }
 
@@ -501,6 +592,15 @@ export function CrearReporte() {
                                       <Button
                                         variant="outline"
                                         size="sm"
+                                        onClick={() => openAssignDialog(report)}
+                                        disabled={loading}
+                                      >
+                                        <Users className="h-4 w-4 mr-1" />
+                                        Asignar
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
                                         onClick={() => handleUpdateStatus(report, 'revisado')}
                                         disabled={loading}
                                       >
@@ -554,6 +654,99 @@ export function CrearReporte() {
           </Tabs>
         </div>
       </SidebarInset>
+
+      {/* Modal para asignar tarea de moderación */}
+      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Asignar Tarea de Moderación
+            </DialogTitle>
+            <DialogDescription>
+              Asigna este reporte a otro moderador para su revisión. El moderador recibirá una notificación automática.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleAssignTask}>
+            <div className="space-y-4">
+              {/* Información del reporte */}
+              {assignTarget && (
+                <div className="p-4 bg-muted rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="outline">
+                      {assignTarget.tipo_contenido === 'post' ? 'Publicación' : 'Comentario'} #{assignTarget.contenido_id}
+                    </Badge>
+                    <Badge variant="destructive">Pendiente</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-2">{assignTarget.razon}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Reportado el {formatDate(assignTarget.fecha)} por {assignTarget.reportado_por_email || `ID: ${assignTarget.reportado_por}`}
+                  </p>
+                </div>
+              )}
+
+              {/* Selector de moderador */}
+              <div className="space-y-2">
+                <Label htmlFor="moderator">Asignar a Moderador *</Label>
+                <Select value={selectedModerator} onValueChange={setSelectedModerator} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona un moderador" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {moderators.map((moderator) => (
+                      <SelectItem key={moderator.email} value={moderator.email}>
+                        {moderator.name} ({moderator.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Comentario opcional */}
+              <div className="space-y-2">
+                <Label htmlFor="comment">Comentario Adicional (Opcional)</Label>
+                <Textarea
+                  id="comment"
+                  placeholder="Agrega instrucciones específicas o contexto para el moderador asignado..."
+                  value={assignComment}
+                  onChange={(e) => setAssignComment(e.target.value)}
+                  rows={3}
+                  maxLength={500}
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Opcional - Máximo 500 caracteres</span>
+                  <span>{assignComment.length}/500</span>
+                </div>
+              </div>
+
+              {/* Información adicional */}
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Nota:</strong> El moderador asignado recibirá una notificación automática con los detalles de la tarea y tu comentario.
+                </p>
+              </div>
+            </div>
+
+            <DialogFooter className="mt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsAssignDialogOpen(false)}
+                disabled={assignLoading}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={assignLoading || !selectedModerator.trim()}
+              >
+                {assignLoading ? "Asignando..." : "Asignar Tarea"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   )
 }
