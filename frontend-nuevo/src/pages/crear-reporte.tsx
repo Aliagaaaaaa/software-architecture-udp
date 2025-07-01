@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/sidebar"
 import { toast } from "sonner"
 import { AlertTriangle, FileText, MessageSquare, Plus, Eye, Edit, Trash2, MoreVertical, Shield, Clock, CheckCircle, XCircle } from "lucide-react"
+import { RAZONES_REPORTE } from "@/lib/constants"
 
 type Report = {
   id_reporte: number
@@ -43,7 +44,7 @@ export function CrearReporte() {
   // Estados para crear reporte
   const [contenidoId, setContenidoId] = useState("")
   const [tipoContenido, setTipoContenido] = useState("")
-  const [razon, setRazon] = useState("")
+  const [razonSeleccionada, setRazonSeleccionada] = useState("")
 
   // Estados para listar reportes
   const [myReports, setMyReports] = useState<Report[]>([])
@@ -98,7 +99,8 @@ export function CrearReporte() {
           if (json.success && json.report && json.report.id_reporte) {
             // Crear notificación de reporte para moderadores
             const token = localStorage.getItem("token")
-            const notificationMessage = `NOTIFcreate_report_notification ${token} ${json.report.id_reporte} '${razon}' '${tipoContenido}'`
+            const razonFinal = RAZONES_REPORTE.find(r => r.value === razonSeleccionada)?.label || razonSeleccionada
+            const notificationMessage = `NOTIFcreate_report_notification ${token} ${json.report.id_reporte} '${razonFinal}' '${tipoContenido}'`
             console.log("📤 Enviando notificación de reporte:", notificationMessage)
             if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
               socketRef.current.send(notificationMessage)
@@ -107,7 +109,7 @@ export function CrearReporte() {
             toast.success("Reporte creado exitosamente")
             setContenidoId("")
             setTipoContenido("")
-            setRazon("")
+            setRazonSeleccionada("")
             setLoading(false)
             loadMyReports()
           }
@@ -209,21 +211,19 @@ export function CrearReporte() {
   const handleCreateReport = (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!contenidoId.trim() || !tipoContenido || !razon.trim()) {
+    if (!contenidoId.trim() || !tipoContenido || !razonSeleccionada.trim()) {
       toast.error("Todos los campos son obligatorios")
       return
     }
 
-    if (razon.length > 500) {
-      toast.error("La razón no puede exceder 500 caracteres")
-      return
-    }
+    // Obtener la razón seleccionada
+    const razonFinal = RAZONES_REPORTE.find(r => r.value === razonSeleccionada)?.label || razonSeleccionada
 
     setLoading(true)
     const token = localStorage.getItem("token")
     
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      const message = `reprtcreate_report ${token} ${contenidoId} ${tipoContenido} '${razon}'`
+      const message = `reprtcreate_report ${token} ${contenidoId} ${tipoContenido} '${razonFinal}'`
       console.log("📤 Creando reporte:", message)
       socketRef.current.send(message)
     } else {
@@ -294,17 +294,19 @@ export function CrearReporte() {
 
   return (
     <SidebarProvider>
-      <AppSidebar variant="inset" user={user} />
+      <AppSidebar user={user} />
       <SidebarInset>
         <SiteHeader />
-        <div className="flex flex-col gap-6 p-6">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-6 w-6 text-orange-500" />
-            <h1 className="text-2xl font-bold">Gestión de Reportes</h1>
+        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+              <AlertTriangle className="h-8 w-8 text-red-500" />
+              Gestión de Reportes
+            </h1>
           </div>
 
           <Tabs defaultValue="create" className="w-full">
-            <TabsList className={`grid w-full ${user?.rol === 'moderador' ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="create">Crear Reporte</TabsTrigger>
               <TabsTrigger value="my-reports">Mis Reportes</TabsTrigger>
               {user?.rol === 'moderador' && (
@@ -312,7 +314,6 @@ export function CrearReporte() {
               )}
             </TabsList>
 
-            {/* Tab para crear reporte */}
             <TabsContent value="create" className="space-y-4">
               <Card>
                 <CardHeader>
@@ -361,18 +362,21 @@ export function CrearReporte() {
 
                     <div className="space-y-2">
                       <Label htmlFor="razon">Razón del Reporte *</Label>
-                      <Textarea
-                        id="razon"
-                        value={razon}
-                        onChange={(e) => setRazon(e.target.value)}
-                        placeholder="Describe detalladamente por qué reportas este contenido..."
-                        rows={4}
-                        required
-                      />
-                      <div className="text-sm text-muted-foreground text-right">
-                        {razon.length}/500 caracteres
-                      </div>
+                      <Select value={razonSeleccionada} onValueChange={setRazonSeleccionada} required>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona una razón" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {RAZONES_REPORTE.map((razon) => (
+                            <SelectItem key={razon.value} value={razon.value}>
+                              {razon.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
+
+
 
                     <Button type="submit" disabled={loading} className="w-full">
                       {loading ? "Creando Reporte..." : "Crear Reporte"}
@@ -384,14 +388,14 @@ export function CrearReporte() {
 
             {/* Tab para mis reportes */}
             <TabsContent value="my-reports" className="space-y-4">
-      <Card>
-        <CardHeader>
+              <Card>
+                <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <FileText className="h-5 w-5" />
                     Mis Reportes ({myReports.length})
                   </CardTitle>
-        </CardHeader>
-        <CardContent>
+                </CardHeader>
+                <CardContent>
                   {myReports.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
                       <AlertTriangle className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -532,7 +536,7 @@ export function CrearReporte() {
                                         className="text-destructive"
                                       >
                                         <Trash2 className="h-4 w-4 mr-2" />
-                                        Eliminar
+                                        Eliminar (Admin)
                                       </DropdownMenuItem>
                                     </DropdownMenuContent>
                                   </DropdownMenu>
@@ -543,12 +547,12 @@ export function CrearReporte() {
                         ))}
                       </div>
                     )}
-        </CardContent>
-      </Card>
+                  </CardContent>
+                </Card>
               </TabsContent>
             )}
           </Tabs>
-    </div>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   )

@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
@@ -17,6 +18,7 @@ import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar"
+import { RAZONES_REPORTE } from "@/lib/constants"
 
 type Post = {
   id_post: number
@@ -38,6 +40,8 @@ type Comment = {
   id_post: number
 }
 
+
+
 export default function PostDetail() {
   const { postId } = useParams()
   const [post, setPost] = useState<Post | null>(null)
@@ -53,6 +57,15 @@ export default function PostDetail() {
   const [loading, setLoading] = useState(false)
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [subscriptionLoading, setSubscriptionLoading] = useState(false)
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false)
+  const [reportType, setReportType] = useState<'post' | 'comment'>('post')
+  const [reportTargetId, setReportTargetId] = useState<number | null>(null)
+  const [selectedReason, setSelectedReason] = useState("")
+  const [reportLoading, setReportLoading] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [deleteReason, setDeleteReason] = useState("")
+  const [deleteTarget, setDeleteTarget] = useState<{type: 'post' | 'comment', id: number, authorEmail: string} | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const socketRef = useRef<WebSocket | null>(null)
   const navigate = useNavigate()
 
@@ -160,6 +173,7 @@ export default function PostDetail() {
         try {
           toast.success("Post eliminado exitosamente")
           setLoading(false)
+          setDeleteLoading(false)
           // Navegar de vuelta al foro
           if (post) {
             navigate(`/forum/${post.id_foro}`)
@@ -169,6 +183,19 @@ export default function PostDetail() {
         } catch (err) {
           console.error("Error al parsear eliminación de post:", err)
           setLoading(false)
+          setDeleteLoading(false)
+        }
+      }
+
+      // Respuesta de eliminación de comentario por moderador
+      if (event.data.includes("COMMSOK") && event.data.includes("eliminado exitosamente")) {
+        try {
+          toast.success("Comentario eliminado exitosamente")
+          setDeleteLoading(false)
+          loadComments() // Recargar comentarios
+        } catch (err) {
+          console.error("Error al parsear eliminación de comentario:", err)
+          setDeleteLoading(false)
         }
       }
       
@@ -355,14 +382,22 @@ export default function PostDetail() {
   }
 
   const handleDeleteComment = (commentId: number, isAdmin = false) => {
-    if (!confirm("¿Estás seguro de que quieres eliminar este comentario?")) return
+    if (isAdmin) {
+      // Para moderadores, abrir diálogo de razón
+      const comment = comments.find(c => c.id_comentario === commentId)
+      if (comment) {
+        openDeleteDialog('comment', commentId, comment.autor_email)
+      }
+      return
+    }
+
+    // Para el autor, eliminar directamente
+    if (!confirm("¿Estás seguro de que quieres eliminar tu comentario?")) return
 
     toast.info("Eliminando comentario...")
     const token = localStorage.getItem("token")
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      const message = isAdmin 
-        ? `COMMSadmin_delete_comment ${token} ${commentId}`
-        : `COMMSdelete_comment ${token} ${commentId}`
+      const message = `COMMSdelete_comment ${token} ${commentId}`
       console.log("📤 Enviando mensaje:", message)
       socketRef.current.send(message)
     } else {
@@ -440,17 +475,50 @@ export default function PostDetail() {
     }
   }
 
+  const openDeleteDialog = (type: 'post' | 'comment', id: number, authorEmail: string) => {
+    setDeleteTarget({ type, id, authorEmail })
+    setDeleteReason("")
+    setIsDeleteDialogOpen(true)
+  }
+
   const handleAdminDeletePost = () => {
     if (!post) return
+    openDeleteDialog('post', post.id_post, post.autor_email)
+  }
+
+  const handleSubmitDelete = (e: React.FormEvent) => {
+    e.preventDefault()
     
-    if (confirm("¿Estás seguro de que quieres eliminar este post como moderador?")) {
-      setLoading(true)
-      const token = localStorage.getItem("token")
-      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-        const message = `POSTSadmin_delete_post ${token} ${post.id_post}`
-        console.log("📤 Eliminando post (admin):", message)
-        socketRef.current.send(message)
+    if (!deleteReason.trim() || !deleteTarget) {
+      toast.error("Por favor especifica una razón para la eliminación")
+      return
+    }
+
+    setDeleteLoading(true)
+    const token = localStorage.getItem("token")
+    
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      let message = ""
+      if (deleteTarget.type === 'post') {
+        message = `POSTSadmin_delete_post ${token} ${deleteTarget.id} '${deleteReason.trim()}'`
+      } else {
+        message = `COMMSadmin_delete_comment ${token} ${deleteTarget.id} '${deleteReason.trim()}'`
       }
+      
+      console.log("📤 Eliminando contenido (admin):", message)
+      socketRef.current.send(message)
+      
+      // Enviar notificación al usuario
+      const notificationMessage = `NOTIFcontent_deleted_notification ${token} '${deleteTarget.authorEmail}' '${deleteTarget.type === 'post' ? 'publicación' : 'comentario'}' '${deleteReason.trim()}'`
+      console.log("📤 Enviando notificación de eliminación:", notificationMessage)
+      socketRef.current.send(notificationMessage)
+      
+      setIsDeleteDialogOpen(false)
+      setDeleteReason("")
+      setDeleteTarget(null)
+    } else {
+      toast.error("Error de conexión")
+      setDeleteLoading(false)
     }
   }
 
@@ -469,16 +537,35 @@ export default function PostDetail() {
     }
   }
 
+  const openReportDialog = (type: 'post' | 'comment', targetId: number) => {
+    setReportType(type)
+    setReportTargetId(targetId)
+    setSelectedReason("")
+    setIsReportDialogOpen(true)
+  }
+
   const handleReportPost = () => {
     if (!post) return
+    openReportDialog('post', post.id_post)
+  }
+
+  const handleSubmitReport = (e: React.FormEvent) => {
+    e.preventDefault()
     
-    const reason = prompt("¿Por qué quieres reportar este post?\n\nDescribe brevemente la razón:")
-    if (!reason || !reason.trim()) return
+    if (!selectedReason.trim() || !reportTargetId) {
+      toast.error("Por favor selecciona una razón para el reporte")
+      return
+    }
+
+    setReportLoading(true)
+    
+    // Obtener la razón seleccionada
+    const finalReason = RAZONES_REPORTE.find(r => r.value === selectedReason)?.label || selectedReason
     
     const token = localStorage.getItem("token")
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      const message = `reprtcreate_report ${token} ${post.id_post} post '${reason.trim()}'`
-      console.log("📤 Reportando post:", message)
+      const message = `reprtcreate_report ${token} ${reportTargetId} ${reportType} '${finalReason}'`
+      console.log("📤 Reportando:", message)
       socketRef.current.send(message)
       
       // Escuchar respuesta
@@ -492,17 +579,21 @@ export default function PostDetail() {
               const json = JSON.parse(jsonString)
               
               if (json.success) {
-                toast.success("Post reportado exitosamente")
+                toast.success(`${reportType === 'post' ? 'Post' : 'Comentario'} reportado exitosamente`)
+                setIsReportDialogOpen(false)
+                setSelectedReason("")
               } else {
-                toast.error(json.message || "Error al reportar el post")
+                toast.error(json.message || `Error al reportar el ${reportType === 'post' ? 'post' : 'comentario'}`)
               }
             } catch (err) {
               console.error("Error parsing report response:", err)
               toast.error("Error al procesar la respuesta")
             }
           } else if (event.data.includes("reprtNK")) {
-            toast.error("Error al reportar el post")
+            toast.error(`Error al reportar el ${reportType === 'post' ? 'post' : 'comentario'}`)
           }
+          
+          setReportLoading(false)
           
           // Restaurar el handler original
           if (originalOnMessage && socketRef.current) {
@@ -512,51 +603,12 @@ export default function PostDetail() {
       }
     } else {
       toast.error("Error de conexión")
+      setReportLoading(false)
     }
   }
 
   const handleReportComment = (comment: Comment) => {
-    const reason = prompt("¿Por qué quieres reportar este comentario?\n\nDescribe brevemente la razón:")
-    if (!reason || !reason.trim()) return
-    
-    const token = localStorage.getItem("token")
-    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      const message = `reprtcreate_report ${token} ${comment.id_comentario} comentario '${reason.trim()}'`
-      console.log("📤 Reportando comentario:", message)
-      socketRef.current.send(message)
-      
-      // Escuchar respuesta
-      const originalOnMessage = socketRef.current?.onmessage
-      if (socketRef.current) {
-        socketRef.current.onmessage = (event) => {
-          if (event.data.includes("reprtOK")) {
-            try {
-              const reprtOkIndex = event.data.indexOf("reprtOK")
-              const jsonString = event.data.slice(reprtOkIndex + "reprtOK".length)
-              const json = JSON.parse(jsonString)
-              
-              if (json.success) {
-                toast.success("Comentario reportado exitosamente")
-              } else {
-                toast.error(json.message || "Error al reportar el comentario")
-              }
-            } catch (err) {
-              console.error("Error parsing report response:", err)
-              toast.error("Error al procesar la respuesta")
-            }
-          } else if (event.data.includes("reprtNK")) {
-            toast.error("Error al reportar el comentario")
-          }
-          
-          // Restaurar el handler original
-          if (originalOnMessage && socketRef.current) {
-            socketRef.current.onmessage = originalOnMessage
-          }
-        }
-      }
-    } else {
-      toast.error("Error de conexión")
-    }
+    openReportDialog('comment', comment.id_comentario)
   }
 
   const formatDate = (dateString: string) => {
@@ -828,6 +880,107 @@ export default function PostDetail() {
                             </Button>
                             <Button type="submit" disabled={loading}>
                               {loading ? "Guardando..." : "Guardar Cambios"}
+                            </Button>
+                          </div>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+
+                    {/* Dialog para reportar contenido */}
+                    <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
+                      <DialogContent className="max-w-lg">
+                        <DialogHeader>
+                          <DialogTitle>Reportar {reportType === 'post' ? 'Publicación' : 'Comentario'}</DialogTitle>
+                          <DialogDescription>
+                            Selecciona la razón por la cual quieres reportar este {reportType === 'post' ? 'post' : 'comentario'}.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={handleSubmitReport} className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="reason">Razón del Reporte *</Label>
+                            <Select value={selectedReason} onValueChange={setSelectedReason} required>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecciona una razón" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {RAZONES_REPORTE.map((razon) => (
+                                  <SelectItem key={razon.value} value={razon.value}>
+                                    {razon.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          
+
+                          
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setIsReportDialogOpen(false)}
+                              disabled={reportLoading}
+                            >
+                              Cancelar
+                            </Button>
+                            <Button type="submit" disabled={reportLoading || !selectedReason}>
+                              {reportLoading ? "Enviando..." : "Enviar Reporte"}
+                            </Button>
+                          </div>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+
+                    {/* Dialog para eliminar contenido con razón */}
+                    <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                      <DialogContent className="max-w-lg">
+                        <DialogHeader>
+                          <DialogTitle>Eliminar {deleteTarget?.type === 'post' ? 'Publicación' : 'Comentario'} como Moderador</DialogTitle>
+                          <DialogDescription>
+                            Especifica la razón por la cual estás eliminando este {deleteTarget?.type === 'post' ? 'post' : 'comentario'}. El usuario será notificado.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={handleSubmitDelete} className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="delete-reason">Razón de la Eliminación *</Label>
+                            <Textarea
+                              id="delete-reason"
+                              value={deleteReason}
+                              onChange={(e) => setDeleteReason(e.target.value)}
+                              placeholder="Especifica por qué estás eliminando este contenido..."
+                              rows={4}
+                              required
+                            />
+                            <div className="text-sm text-muted-foreground text-right">
+                              {deleteReason.length}/500 caracteres
+                            </div>
+                          </div>
+                          
+                          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                            <div className="flex items-start gap-2">
+                              <Shield className="h-4 w-4 text-amber-600 mt-0.5" />
+                              <div className="text-sm text-amber-800">
+                                <p className="font-medium">Notificación automática</p>
+                                <p>El usuario {deleteTarget?.authorEmail} será notificado sobre esta eliminación.</p>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setIsDeleteDialogOpen(false)}
+                              disabled={deleteLoading}
+                            >
+                              Cancelar
+                            </Button>
+                            <Button 
+                              type="submit" 
+                              variant="destructive"
+                              disabled={deleteLoading || !deleteReason.trim() || deleteReason.length > 500}
+                            >
+                              {deleteLoading ? "Eliminando..." : "Eliminar Contenido"}
                             </Button>
                           </div>
                         </form>
