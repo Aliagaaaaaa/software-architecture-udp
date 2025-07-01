@@ -29,6 +29,9 @@ class AuthService(SOAServiceBase):
         
         # Crear un usuario admin por defecto si no existe
         self._create_default_admin()
+        
+        # Allow only specific email domain
+        self.allowed_email_domain = "@mail.udp.cl"
     
     def _init_database(self):
         """Inicializa la base de datos remota y crea las tablas necesarias"""
@@ -52,8 +55,8 @@ class AuthService(SOAServiceBase):
         try:
             # Verificar si ya existe el usuario admin
             existing_user = self.db.fetch_one(
-                'SELECT email FROM USUARIO WHERE email = ?', 
-                ['admin@institucional.edu.co']
+                'SELECT email FROM USUARIO WHERE email = ?',
+                ['admin@mail.udp.cl']
             )
             
             if existing_user:
@@ -65,10 +68,10 @@ class AuthService(SOAServiceBase):
             result = self.db.execute_update('''
                 INSERT INTO USUARIO (email, password, rol, created_at)
                 VALUES (?, ?, ?, ?)
-            ''', ['admin@institucional.edu.co', admin_password, 'moderador', datetime.now().isoformat()])
+            ''', ['admin@mail.udp.cl', admin_password, 'moderador', datetime.now().isoformat()])
             
             if result.get("success"):
-                self.logger.info("Usuario admin creado en BD remota con email: admin@institucional.edu.co / admin123")
+                self.logger.info("Usuario admin creado en BD remota con email: admin@mail.udp.cl / admin123")
             else:
                 self.logger.error(f"Error creando usuario admin: {result.get('error')}")
             
@@ -275,10 +278,10 @@ class AuthService(SOAServiceBase):
         self.logger.info(f"Solicitud de registro para: {email} con rol: {rol}")
         
         # Validar email
-        if not email or '@' not in email:
+        if not email or '@' not in email or not email.lower().endswith(self.allowed_email_domain):
             return json.dumps({
                 "success": False,
-                "message": "Email inválido"
+                "message": f"Solo se permiten correos con dominio {self.allowed_email_domain}"
             })
         
         # Validar contraseña
@@ -360,6 +363,14 @@ class AuthService(SOAServiceBase):
             return json.dumps({
                 "success": False,
                 "message": "Credenciales inválidas"
+            })
+        
+        # Obtener usuario de la base de datos
+        if not email.lower().endswith(self.allowed_email_domain):
+            self.logger.warning(f"Dominio de correo no permitido para login: {email}")
+            return json.dumps({
+                "success": False,
+                "message": f"Solo se permiten correos con dominio {self.allowed_email_domain}"
             })
         
         # Generar token JWT
@@ -533,7 +544,7 @@ def main():
     print(f"Base de datos: {proxy_url}")
     print(f"Puerto: {service.port}")
     print(f"Métodos disponibles: {', '.join(service.get_available_methods())}")
-    print(f"Usuario por defecto: admin@institucional.edu.co / admin123")
+    print(f"Usuario por defecto: admin@mail.udp.cl / admin123")
     print(f"Presiona Ctrl+C para detener")
     
     try:

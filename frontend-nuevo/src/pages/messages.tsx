@@ -306,7 +306,7 @@ export default function Messages() {
     const originalOnMessage = socketRef.current?.onmessage
     if (socketRef.current) {
       socketRef.current.onmessage = (event) => {
-        if (event.data.includes("MSGESOK") && event.data.includes("enviado exitosamente")) {
+        if (event.data.includes("MSGESOK")) {
           // Extraer el ID del mensaje de la respuesta para crear notificación
           try {
             const msgesOkIndex = event.data.indexOf("MSGESOK")
@@ -413,7 +413,7 @@ export default function Messages() {
         socketRef.current.onmessage = (event) => {
           console.log("📨 Respuesta de envío:", event.data)
           
-          if (event.data.includes("MSGESOK") && event.data.includes("enviado exitosamente")) {
+          if (event.data.includes("MSGESOK")) {
             try {
               const msgesOkIndex = event.data.indexOf("MSGESOK")
               const jsonString = event.data.slice(msgesOkIndex + "MSGESOK".length)
@@ -433,6 +433,9 @@ export default function Messages() {
                   socketRef.current?.send(notificationMessage)
                 }
                 
+                // Show success toast
+                toast.success("Mensaje enviado exitosamente")
+                
                 // Recargar la conversación después de un breve delay
                 setTimeout(() => {
                   loadConversation(selectedConversation)
@@ -444,13 +447,20 @@ export default function Messages() {
               }
             } catch (err) {
               console.error("Error parseando respuesta de mensaje:", err)
+              toast.error("Error procesando respuesta del servidor")
             }
+          } else if (event.data.includes("MSGESNK")) {
+            console.error("Error enviando mensaje en conversación:", event.data)
+            toast.error("Error enviando mensaje")
           }
           
           // Restaurar el handler original
           if (originalOnMessage) {
             socketRef.current!.onmessage = originalOnMessage
           }
+          
+          // Reset loading state
+          setSendingConversationMessage(false)
         }
         
         // Limpiar el input
@@ -458,7 +468,7 @@ export default function Messages() {
       }
     } catch (err) {
       console.error("Error enviando mensaje en conversación:", err)
-    } finally {
+      toast.error("Error enviando mensaje")
       setSendingConversationMessage(false)
     }
   }

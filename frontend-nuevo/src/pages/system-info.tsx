@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Info, Server, Database, RefreshCw, CheckCircle, XCircle } from "lucide-react"
+import { Info, Server, RefreshCw, CheckCircle, XCircle } from "lucide-react"
 import { toast } from "sonner"
 import {
   SidebarInset,
@@ -218,30 +218,7 @@ export default function SystemInfo() {
                           </div>
                         )}
 
-                        {service.database && (
-                          <>
-                            <Separator />
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2 text-sm font-medium">
-                                <Database className="h-3 w-3" />
-                                Base de Datos
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {service.database.type}
-                              </div>
-                              {service.database.connection_test !== undefined && (
-                                <div className="flex items-center gap-1 text-xs">
-                                  {service.database.connection_test ? (
-                                    <CheckCircle className="h-3 w-3 text-green-500" />
-                                  ) : (
-                                    <XCircle className="h-3 w-3 text-red-500" />
-                                  )}
-                                  Conexión {service.database.connection_test ? "OK" : "Error"}
-                                </div>
-                              )}
-                            </div>
-                          </>
-                        )}
+
                       </div>
 
                       {service.methods.length > 0 && (
