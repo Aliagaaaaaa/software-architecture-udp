@@ -651,17 +651,20 @@ class ProfileService(SOAServiceBase):
         try:
             # Obtener todos los moderadores activos
             moderators = self.db.fetch_all('''
-                SELECT email, name FROM USUARIO 
+                SELECT email FROM USUARIO 
                 WHERE rol = 'moderador' AND is_active = 1
-                ORDER BY name, email
+                ORDER BY email
             ''')
             
-            # Formatear la respuesta
+            # Formatear la respuesta (inferir nombre a partir del correo)
             moderators_list = []
             for mod in moderators:
+                email = mod.get("email")
+                if not email:
+                    continue
                 moderators_list.append({
-                    "email": mod.get("email"),
-                    "name": mod.get("name") or mod.get("email").split("@")[0]  # Usar email como nombre si no hay nombre
+                    "email": email,
+                    "name": email.split("@")[0]
                 })
             
             return json.dumps({

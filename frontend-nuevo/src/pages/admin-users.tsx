@@ -32,7 +32,6 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar"
 import { useAuth } from "@/hooks/useAuth"
-import { buildServiceMessage } from "@/lib/utils"
 
 type User = {
   email: string
@@ -75,7 +74,7 @@ export default function AdminUsers() {
   const loadUsers = () => {
     const token = localStorage.getItem("token")
     if (token && socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      const message = `AUTHusers`
+      const message = `AUTH_users`
       console.log("📤 Cargando usuarios:", message)
       socketRef.current.send(message)
     }
@@ -130,10 +129,12 @@ export default function AdminUsers() {
       console.log("📨 Respuesta del backend:", event.data)
       
       // Respuesta de lista de usuarios
-      if (event.data.includes("AUTHOK")) {
+      const isAuthOk = event.data.includes("AUTH_OK") || event.data.includes("AUTHOK")
+      if (isAuthOk) {
         try {
-          const authOkIndex = event.data.indexOf("AUTHOK")
-          const jsonString = event.data.slice(authOkIndex + "AUTHOK".length)
+          const authOkPrefix = event.data.includes("AUTH_OK") ? "AUTH_OK" : "AUTHOK"
+          const authOkIndex = event.data.indexOf(authOkPrefix)
+          const jsonString = event.data.slice(authOkIndex + authOkPrefix.length)
           const json = JSON.parse(jsonString)
           
           if (json.success && json.users) {
@@ -166,7 +167,7 @@ export default function AdminUsers() {
       }
 
       // Respuesta de creación de usuario
-      if (event.data.includes("AUTHOK") && event.data.includes("Usuario registrado exitosamente")) {
+      if ((event.data.includes("AUTH_OK") || event.data.includes("AUTHOK")) && event.data.includes("Usuario registrado exitosamente")) {
         try {
           setIsCreateUserDialogOpen(false)
           setNewUserEmail("")
@@ -182,7 +183,7 @@ export default function AdminUsers() {
       }
 
       // Respuesta de eliminación de usuario
-      if (event.data.includes("AUTHOK") && event.data.includes("Usuario eliminado exitosamente")) {
+      if ((event.data.includes("AUTH_OK") || event.data.includes("AUTHOK")) && event.data.includes("eliminado exitosamente")) {
         try {
           setLoading(false)
           toast.success("Usuario eliminado exitosamente")
@@ -205,7 +206,7 @@ export default function AdminUsers() {
         }
       }
 
-      if (event.data.includes("AUTHNK") || event.data.includes("PROFSNK")) {
+      if (event.data.includes("AUTH_NK") || event.data.includes("AUTHNK") || event.data.includes("PROFS_NK") || event.data.includes("PROFSNK")) {
         toast.error("Error en la operación")
         setLoading(false)
         setIsCreateUserDialogOpen(false)
@@ -227,7 +228,7 @@ export default function AdminUsers() {
 
     setLoading(true)
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      const message = `AUTHregister ${newUserEmail} ${newUserPassword} ${newUserRole}`
+      const message = `AUTH_register ${newUserEmail} ${newUserPassword} ${newUserRole}`
       console.log("📤 Creando usuario:", message)
       socketRef.current.send(message)
     }
@@ -237,7 +238,7 @@ export default function AdminUsers() {
     if (confirm(`¿Estás seguro de que quieres eliminar al usuario ${email}? Esta acción no se puede deshacer.`)) {
       setLoading(true)
       if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-        const message = `AUTHdelete_user ${email}`
+        const message = `AUTH_delete_user ${email}`
         console.log("📤 Eliminando usuario:", message)
         socketRef.current.send(message)
       }
@@ -513,26 +514,26 @@ export default function AdminUsers() {
                 {/* Tab de Usuarios */}
                 <TabsContent value="users" className="space-y-4">
                   <div className="grid gap-4">
-                    {filteredUsers.map((user) => (
-                      <Card key={user.email} className="border-l-4 border-l-green-500">
+                    {filteredUsers.map((usr) => (
+                      <Card key={usr.email} className="border-l-4 border-l-green-500">
                         <CardContent className="pt-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
                               <div className="flex items-center gap-3">
                                 <Avatar className="h-10 w-10">
                                   <AvatarFallback>
-                                    {getUserInitials(user.email)}
+                                    {getUserInitials(usr.email)}
                                   </AvatarFallback>
                                 </Avatar>
                                 <div>
-                                  <p className="font-medium">{user.email}</p>
+                                  <p className="font-medium">{usr.email}</p>
                                   <div className="flex items-center gap-2">
-                                    <Badge variant={user.rol === 'moderador' ? 'default' : 'secondary'}>
-                                      {user.rol}
+                                    <Badge variant={usr.rol === 'moderador' ? 'default' : 'secondary'}>
+                                      {usr.rol}
                                     </Badge>
                                     <span className="text-sm text-muted-foreground">
                                       <Calendar className="h-3 w-3 inline mr-1" />
-                                      {formatDate(user.created_at)}
+                                      {formatDate(usr.created_at)}
                                     </span>
                                   </div>
                                 </div>
@@ -541,8 +542,8 @@ export default function AdminUsers() {
                             <Button
                               variant="destructive"
                               size="sm"
-                              onClick={() => handleDeleteUser(user.email)}
-                              disabled={loading || user.email === user?.email} // No puede eliminarse a sí mismo
+                              onClick={() => handleDeleteUser(usr.email)}
+                              disabled={loading || usr.email === user?.email} // No puede eliminarse a sí mismo
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -606,29 +607,29 @@ export default function AdminUsers() {
                 {/* Tab de Usuarios sin Perfil */}
                 <TabsContent value="without-profile" className="space-y-4">
                   <div className="grid gap-4">
-                    {usersWithoutProfile.map((user) => (
-                      <Card key={user.email} className="border-l-4 border-l-orange-500">
+                    {usersWithoutProfile.map((usr) => (
+                      <Card key={usr.email} className="border-l-4 border-l-orange-500">
                         <CardContent className="pt-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
                               <div className="flex items-center gap-3">
                                 <Avatar className="h-10 w-10">
                                   <AvatarFallback>
-                                    {getUserInitials(user.email)}
+                                    {getUserInitials(usr.email)}
                                   </AvatarFallback>
                                 </Avatar>
                                 <div>
-                                  <p className="font-medium">{user.email}</p>
+                                  <p className="font-medium">{usr.email}</p>
                                   <div className="flex items-center gap-2">
-                                    <Badge variant={user.rol === 'moderador' ? 'default' : 'secondary'}>
-                                      {user.rol}
+                                    <Badge variant={usr.rol === 'moderador' ? 'default' : 'secondary'}>
+                                      {usr.rol}
                                     </Badge>
                                     <Badge variant="outline" className="text-orange-600">
                                       Sin Perfil
                                     </Badge>
                                     <span className="text-sm text-muted-foreground">
                                       <Calendar className="h-3 w-3 inline mr-1" />
-                                      {formatDate(user.created_at)}
+                                      {formatDate(usr.created_at)}
                                     </span>
                                   </div>
                                 </div>
