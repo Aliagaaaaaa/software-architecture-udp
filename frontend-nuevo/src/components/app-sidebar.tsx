@@ -1,5 +1,6 @@
 import * as React from "react"
 import { useNavigate } from "react-router-dom"
+import { useEffect, useState, useRef } from "react"
 import {
   IconBell,
   IconLayoutDashboard,
@@ -41,8 +42,51 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   }
 }
 
+// Utilidad simple para obtener token
+const getToken = () => {
+  try {
+    return localStorage.getItem("token") || ""
+  } catch {
+    return ""
+  }
+}
+
 export function AppSidebar({ user, ...props }: AppSidebarProps) {
   const navigate = useNavigate()
+  const [unreadCount, setUnreadCount] = useState(0)
+  const socketRef = useRef<WebSocket | null>(null)
+
+  // Obtener recuento de notificaciones no leídas al montar
+  useEffect(() => {
+    const token = getToken()
+    if (!token) return
+
+    const socket = new WebSocket("ws://4.228.228.99:3001")
+    socketRef.current = socket
+
+    socket.onopen = () => {
+      socket.send(`NOTIFget_unread_count ${token}`)
+    }
+
+    socket.onmessage = (event) => {
+      if (event.data.includes("NOTIFOK")) {
+        try {
+          const idx = event.data.indexOf("NOTIFOK")
+          const jsonString = event.data.slice(idx + "NOTIFOK".length)
+          const response = JSON.parse(jsonString)
+          if (response.unread_count !== undefined) {
+            setUnreadCount(response.unread_count)
+          }
+        } catch {
+          /* ignore parse errors */
+        }
+      }
+    }
+
+    return () => {
+      socket.close()
+    }
+  }, [])
 
   const navMain = [
     {
@@ -162,7 +206,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
           </SidebarGroup>
         )}
         
-        <NavSecondary items={navSecondary} className="mt-auto" />
+        <NavSecondary items={navSecondary} unreadCount={unreadCount} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />

@@ -79,7 +79,7 @@ export function LoginForm({
 
     socket.onerror = (err) => {
       console.error("❌ WebSocket error:", err)
-      toast.error("Error de conexión")
+      
       setIsLoading(false)
     }
     socket.onclose = () => {
@@ -119,7 +119,7 @@ export function LoginForm({
         clearInterval(waitInterval)
         if (isLoading) {
           setIsLoading(false)
-          toast.error("Error de conexión. Por favor intenta nuevamente.")
+          
         }
       }, 5000)
     }

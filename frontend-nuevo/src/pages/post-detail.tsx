@@ -252,7 +252,7 @@ export default function PostDetail() {
 
     socket.onerror = (err) => {
       console.error("❌ WebSocket error:", err)
-      toast.error("Error de conexión")
+      
     }
     socket.onclose = () => {
       console.log("🔒 WebSocket cerrado")
@@ -281,7 +281,7 @@ export default function PostDetail() {
       console.log("📤 Enviando mensaje:", message)
       socketRef.current.send(message)
     } else {
-      toast.error("Error de conexión")
+      
       setLoading(false)
       return
     }
@@ -351,7 +351,7 @@ export default function PostDetail() {
       console.log("📤 Enviando mensaje:", message)
       socketRef.current.send(message)
     } else {
-      toast.error("Error de conexión")
+      
       setLoading(false)
       return
     }
@@ -401,7 +401,7 @@ export default function PostDetail() {
       console.log("📤 Enviando mensaje:", message)
       socketRef.current.send(message)
     } else {
-      toast.error("Error de conexión")
+      
       return
     }
 
@@ -517,7 +517,7 @@ export default function PostDetail() {
       setDeleteReason("")
       setDeleteTarget(null)
     } else {
-      toast.error("Error de conexión")
+      
       setDeleteLoading(false)
     }
   }
@@ -602,7 +602,7 @@ export default function PostDetail() {
         }
       }
     } else {
-      toast.error("Error de conexión")
+      
       setReportLoading(false)
     }
   }

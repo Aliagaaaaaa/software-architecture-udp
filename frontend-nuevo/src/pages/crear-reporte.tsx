@@ -273,7 +273,7 @@ export function CrearReporte() {
       console.log("📤 Creando reporte:", message)
       socketRef.current.send(message)
     } else {
-      toast.error("Error de conexión")
+      
       setLoading(false)
     }
   }
@@ -287,7 +287,7 @@ export function CrearReporte() {
       console.log("📤 Actualizando estado:", message)
       socketRef.current.send(message)
     } else {
-      toast.error("Error de conexión")
+      
       setLoading(false)
     }
   }
@@ -304,7 +304,7 @@ export function CrearReporte() {
       console.log("📤 Eliminando reporte:", message)
       socketRef.current.send(message)
     } else {
-      toast.error("Error de conexión")
+      
       setLoading(false)
     }
   }
@@ -349,7 +349,7 @@ export function CrearReporte() {
       setAssignComment("")
       setAssignTarget(null)
     } else {
-      toast.error("Error de conexión")
+      
       setAssignLoading(false)
     }
   }

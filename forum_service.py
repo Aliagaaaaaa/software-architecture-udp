@@ -457,7 +457,12 @@ class ForumService(SOAServiceBase):
                 return json.dumps({"success": False, "message": "Foro no encontrado"})
             
             forum_data = check_result['results'][0]
-            creador_id = forum_data[0]
+            if isinstance(forum_data, dict):
+                creador_id = forum_data.get('creador_id')
+                titulo_db = forum_data.get('titulo')
+            else:
+                creador_id = forum_data[0]
+                titulo_db = forum_data[1]
             
             # Verificar permisos: solo el creador o moderador pueden actualizar
             if user_id != creador_id and user_rol != 'moderador':
@@ -495,11 +500,17 @@ class ForumService(SOAServiceBase):
                 
                 if updated_result.get('success') and updated_result.get('results'):
                     forum_data = updated_result['results'][0]
+                    if isinstance(forum_data, dict):
+                        creador_id = forum_data.get('creador_id')
+                        titulo = forum_data.get('titulo')
+                    else:
+                        creador_id = forum_data[0]
+                        titulo = forum_data[1]
                     forum = {
                         "id_foro": forum_data[0],
                         "titulo": forum_data[1],
                         "categoria": forum_data[2],
-                        "creador_id": forum_data[3],
+                        "creador_id": creador_id,
                         "created_at": forum_data[4],
                         "updated_at": forum_data[5],
                         "creador_email": forum_data[6] or 'Desconocido'
@@ -545,8 +556,12 @@ class ForumService(SOAServiceBase):
                 return json.dumps({"success": False, "message": "Foro no encontrado"})
             
             forum_data = check_result['results'][0]
-            creador_id = forum_data[0]
-            titulo = forum_data[1]
+            if isinstance(forum_data, dict):
+                creador_id = forum_data.get('creador_id')
+                titulo = forum_data.get('titulo')
+            else:
+                creador_id = forum_data[0]
+                titulo = forum_data[1]
             
             # Verificar permisos: solo el creador o moderador pueden eliminar
             if user_id != creador_id and user_rol != 'moderador':

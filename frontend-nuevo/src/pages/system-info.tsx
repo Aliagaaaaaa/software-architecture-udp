@@ -55,7 +55,6 @@ export default function SystemInfo() {
         socketRef.current?.send(message)
       })
     } else {
-      toast.error("Error de conexión con el servidor")
       setLoading(false)
     }
   }
@@ -121,7 +120,6 @@ export default function SystemInfo() {
 
     socket.onerror = (err) => {
       console.error("❌ WebSocket error:", err)
-      toast.error("Error de conexión WebSocket")
       setLoading(false)
     }
     socket.onclose = () => {

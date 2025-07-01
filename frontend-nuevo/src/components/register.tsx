@@ -57,7 +57,7 @@ export function Register({ className, ...props }: React.ComponentProps<"div">) {
     }
     socket.onerror = (err) => {
       console.error("❌ WebSocket error:", err)
-      toast.error("Error de conexión")
+      
       setIsLoading(false)
     }
     socket.onclose = () => {

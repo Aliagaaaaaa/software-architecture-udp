@@ -146,7 +146,7 @@ export function CrearPublicacion() {
       console.log("📤 Creando post:", message)
       socketRef.current.send(message)
     } else {
-      toast.error("Error de conexión")
+      
       setLoading(false)
     }
   }

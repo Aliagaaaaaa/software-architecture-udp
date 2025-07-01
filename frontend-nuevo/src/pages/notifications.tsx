@@ -115,7 +115,6 @@ export function NotificationsPage() {
 
       socket.onerror = (err) => {
         console.error("❌ WebSocket error:", err)
-        toast.error("Error de conexión WebSocket")
         setLoading(false)
       }
 
@@ -256,6 +255,8 @@ export function NotificationsPage() {
       navigate(`/post/${notification.referencia_id}`)
     } else if (notification.tipo === 'mensaje') {
       navigate('/messages')
+    } else if (notification.tipo === 'evento' || notification.referencia_tipo === 'evento') {
+      navigate('/crear-evento')
     }
   }
 
